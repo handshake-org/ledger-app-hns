@@ -1,6 +1,5 @@
 #include "ledger.h"
 
-uint8_t  g_ledger_halted = 0;
 uint16_t g_ledger_ui_step;
 uint16_t g_ledger_ui_step_count;
 
