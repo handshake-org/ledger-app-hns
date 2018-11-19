@@ -1,0 +1,6 @@
+bin
+debug
+dep
+obj
+src/glyphs.c
+src/glyphs.h
