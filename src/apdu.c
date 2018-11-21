@@ -103,3 +103,86 @@ hns_apdu_get_wallet_public_key(
 
   return 1 + sizeof(n.pub) + 1 + sizeof(n.addr) + sizeof(n.code);
 }
+
+typedef struct
+hns_transaction_ctx_s {
+  uint32_t version;
+  uint32_t no_inputs;
+  uint8_t inputs[no_inputs][32 + 4]; // txhash + index
+  uint8_t sequences[no_inputs];
+} hns_transaction_ctx_t;
+
+static void
+prepare_inputs(
+  hns_transaction_ctx_t ctx,
+  volatile uint8_t * buf,
+  uint8_t len
+) {
+
+}
+
+static void
+prepare_outputs(
+  hns_transaction_ctx_t ctx,
+  volatile uint8_t * buf,
+  uint8_t len
+) {
+
+}
+
+static void
+sign_input(
+  hns_transaction_ctx_t ctx,
+  volatile uint8_t * buf,
+  uint8_t len
+) {
+
+}
+
+volatile uint8_t
+hns_apdu_tx_sign(volatile uint8_t * buf, volatile uint8_t * flags) {
+  uint8_t p1 = buf[HNS_OFFSET_P1];
+  uint8_t p2 = buf[HNS_OFFSET_P2];
+  uint8_t lc = buf[HNS_OFFSET_LC];
+  uint8_t * cdata = buf + HNS_OFFSET_CDATA;
+  static hns_transaction_ctx_t ctx;
+
+  switch(p1) {
+    case 0x00:
+      break;
+
+    case 0x01:
+      if (!ledger_pin_validated())
+        THROW(HNS_EX_SECURITY_STATUS_NOT_SATISFIED);
+
+      memset(&ctx, 0, sizeof(ctx));
+      hns_read_u32(&ctx.version, cdata, true);
+      hns_read_varint(&ctx.version, cdata + 4);
+      return 0;
+      break;
+
+    default:
+      THROW(HNS_EX_INCORRECT_P1_P2);
+      break;
+  };
+
+  switch(p2) {
+    case 0x01:
+      prepare_inputs(ctx, cdata, lc);
+      break;
+
+    case 0x02:
+      prepare_outputs(ctx, cdata, lc);
+      break;
+
+    case 0x04:
+      sign_input(ctx, cdata, lc);
+      break;
+
+    default:
+      THROW(HNS_EX_INCORRECT_P1_P2);
+      break;
+  }
+
+  return 0;
+}

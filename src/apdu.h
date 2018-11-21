@@ -30,4 +30,7 @@ hns_apdu_get_firmware_version(volatile uint8_t *, volatile uint8_t *);
 
 volatile uint8_t
 hns_apdu_get_wallet_public_key(volatile uint8_t *, volatile uint8_t *);
+
+volatile uint8_t
+hns_apdu_tx_sign(volatile uint8_t *, volatile uint8_t *);
 #endif
