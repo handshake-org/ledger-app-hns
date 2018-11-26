@@ -13,15 +13,15 @@ hns_apdu_get_firmware_version(
 ) {
   uint8_t p1 = buf[HNS_OFFSET_P1];
   uint8_t p2 = buf[HNS_OFFSET_P2];
-  uint8_t lc = buf[HNS_OFFSET_LC];
+  size_t lc = buf[HNS_OFFSET_LC];
 
-  if(p1 != 0x00)
+  if(p1 != 0)
     THROW(HNS_EX_INCORRECT_P1_P2);
 
-  if(p2 != 0x00)
+  if(p2 != 0)
     THROW(HNS_EX_INCORRECT_P1_P2);
 
-  if(lc != 0x00)
+  if(lc != 0)
     THROW(HNS_EX_INCORRECT_LENGTH);
 
   if (!ledger_pin_validated())
@@ -31,7 +31,7 @@ hns_apdu_get_firmware_version(
   buf[1] = HNS_APP_MINOR_VERSION;
   buf[2] = HNS_APP_PATCH_VERSION;
 
-  return 0x03;
+  return 3;
 }
 
 volatile uint8_t
@@ -41,9 +41,8 @@ hns_apdu_get_wallet_public_key(
 ) {
   uint8_t p1 = buf[HNS_OFFSET_P1];
   uint8_t p2 = buf[HNS_OFFSET_P2];
-  uint8_t lc = buf[HNS_OFFSET_LC];
+  size_t lc = buf[HNS_OFFSET_LC];
   uint8_t * cdata = buf + HNS_OFFSET_CDATA;
-  char hrp[2];
 
   switch(p1) {
     case 0x00:
@@ -54,14 +53,16 @@ hns_apdu_get_wallet_public_key(
       THROW(HNS_EX_INCORRECT_P1_P2);
   }
 
+  char hrp[2];
+
   switch(p2) {
-    case 0x00:
+    case 0:
       strcpy(hrp, "hs");
-    case 0x01:
+    case 1:
       strcpy(hrp, "ts");
-    case 0x02:
+    case 2:
       strcpy(hrp, "ss");
-    case 0x03:
+    case 3:
       strcpy(hrp, "rs");
       break;
     default:
@@ -74,7 +75,11 @@ hns_apdu_get_wallet_public_key(
   if (!ledger_pin_validated())
     THROW(HNS_SW_SECURITY_STATUS_NOT_SATISFIED);
 
-  uint8_t depth = *(cdata++);
+  uint8_t depth;
+
+  if (!read_u8(cdata, &lc, &depth))
+    // TODO(boymanjor): use descriptive exception
+    THROW(INVALID_PARAMETER);
 
   if (depth > HNS_MAX_PATH)
     THROW(INVALID_PARAMETER);
@@ -83,83 +88,161 @@ hns_apdu_get_wallet_public_key(
   uint8_t i;
 
   for (i = 0; i < depth; i++) {
-    hns_read_u32(&path[i], cdata, true);
-    cdata += 4;
+    if (!read_u32(cdata, &lc, &path[i], true))
+      THROW(INVALID_PARAMETER);
   }
 
   ledger_bip32_node_t n;
   ledger_bip32_node_derive(&n, path, depth, hrp);
 
   uint8_t * out = buf;
+  uint8_t len = 0;
 
-  *(out++) = sizeof(n.pub);
-  memmove(out, n.pub, sizeof(n.pub));
-  out += sizeof(n.pub);
-  *(out++) = sizeof(n.addr);
-  memmove(out, n.addr, sizeof(n.addr));
-  out += sizeof(n.addr);
-  memmove(out, n.code, sizeof(n.code));
-  out += sizeof(n.code);
+  len += write_varbytes(out, n.pub, sizeof(n.pub));
+  len += write_varbytes(out, n.addr, sizeof(n.addr));
+  len += write_bytes(out, n.code, sizeof(n.code));
 
-  return 1 + sizeof(n.pub) + 1 + sizeof(n.addr) + sizeof(n.code);
+  return out - buf;
 }
 
-typedef struct
-hns_transaction_ctx_s {
-  uint32_t version;
-  uint32_t no_inputs;
-  uint8_t inputs[no_inputs][32 + 4]; // txhash + index
-  uint8_t sequences[no_inputs];
-} hns_transaction_ctx_t;
-
-static void
-prepare_inputs(
-  hns_transaction_ctx_t ctx,
-  volatile uint8_t * buf,
-  uint8_t len
+static inline void
+tx_parse(
+  hns_transaction_ctx_t * ctx,
+  uint8_t * buf,
+  size_t * len
 ) {
+  for (;;) {
+    static int in_pos = 0;
+    static int out_pos = 0;
+    static int parse_pos = 0;
 
+    hns_input_t * in = NULL;
+    hns_output_t * out = NULL;
+
+    if (parse_pos >= 0 && parse_pos < 4) {
+      if (in_pos < ctx->ins_len)
+        in = &ctx->ins[in_pos];
+    }
+
+    if (parse_pos >= 4 && parse_pos < 8) {
+      if (out_pos < ctx->outs_len)
+        out = &ctx->outs[out_pos];
+    }
+
+    // TODO(boymanjor): THROW(INVALID_PARSER_STATE)
+    if (in == NULL && out == NULL)
+      THROW(INVALID_PARAMETER);
+
+
+    switch(parse_pos) {
+      case 0:
+        if (!read_prevout(buf, len, &in->prevout)) {
+          parse_pos = 0;
+          break;
+        }
+
+      case 1:
+        if (!read_u64(buf, len, &in->val, true)) {
+          parse_pos = 1;
+          break;
+        }
+
+      case 2:
+        if (!read_u32(buf, len, &in->seq, true)) {
+          parse_pos = 2;
+          break;
+        }
+
+      case 3:
+        if (!read_varint(buf, len, &in->script_len)) {
+          parse_pos = 3;
+          break;
+        }
+
+      case 4:
+        if (!read_bytes(buf, len, in->script, in->script_len)) {
+          parse_pos = 4;
+          break;
+        }
+
+        in_pos += 1;
+
+        if (in_pos < ctx->ins_len) {
+          in = &ctx->ins[in_pos];
+          parse_pos = 0;
+          break;
+        }
+
+      case 5:
+        if (!read_u64(buf, len, &out->val, true)) {
+          parse_pos = 5;
+          break;
+        }
+
+      case 6:
+        if (!read_addr(buf, len, &out->addr)) {
+          parse_pos = 6;
+          break;
+        }
+
+      case 7:
+        if (!read_covenant(buf, len, &out->covenant)) {
+          parse_pos = 7;
+          break;
+        }
+
+        out_pos += 1;
+
+        if (out_pos < ctx->outs_len) {
+          out = &ctx->outs[out_pos];
+          parse_pos = 5;
+          break;
+        }
+
+        parse_pos = 8;
+        break;
+    }
+
+    if (in_pos == ctx->ins_len && out_pos == ctx->outs_len)
+      break;
+  }
 }
 
-static void
-prepare_outputs(
-  hns_transaction_ctx_t ctx,
-  volatile uint8_t * buf,
-  uint8_t len
+static inline void
+tx_sign(
+  hns_transaction_ctx_t * ctx,
+  uint8_t * buf,
+  size_t * len
 ) {
-
-}
-
-static void
-sign_input(
-  hns_transaction_ctx_t ctx,
-  volatile uint8_t * buf,
-  uint8_t len
-) {
-
 }
 
 volatile uint8_t
 hns_apdu_tx_sign(volatile uint8_t * buf, volatile uint8_t * flags) {
+  static hns_transaction_ctx_t ctx;
   uint8_t p1 = buf[HNS_OFFSET_P1];
   uint8_t p2 = buf[HNS_OFFSET_P2];
-  uint8_t lc = buf[HNS_OFFSET_LC];
+  size_t lc = buf[HNS_OFFSET_LC];
   uint8_t * cdata = buf + HNS_OFFSET_CDATA;
-  static hns_transaction_ctx_t ctx;
 
   switch(p1) {
     case 0x00:
       break;
 
-    case 0x01:
+    case 0x01: {
       if (!ledger_pin_validated())
         THROW(HNS_EX_SECURITY_STATUS_NOT_SATISFIED);
 
       memset(&ctx, 0, sizeof(ctx));
-      hns_read_u32(&ctx.version, cdata, true);
-      hns_read_varint(&ctx.version, cdata + 4);
+      read_u32(cdata, &lc, &ctx.ver, true);
+      read_u32(cdata, &lc, &ctx.locktime, true);
+      read_varint(cdata, &lc, &ctx.ins_len);
+      read_varint(cdata, &lc, &ctx.outs_len);
+
+      if (cdata - lc != buf + HNS_OFFSET_CDATA)
+        THROW(HNS_EX_INCORRECT_LENGTH);
+
       return 0;
-      break;
+    }
 
     default:
       THROW(HNS_EX_INCORRECT_P1_P2);
@@ -167,16 +250,12 @@ hns_apdu_tx_sign(volatile uint8_t * buf, volatile uint8_t * flags) {
   };
 
   switch(p2) {
+    case 0x00:
+      tx_parse(&ctx, cdata, &lc);
+      break;
+
     case 0x01:
-      prepare_inputs(ctx, cdata, lc);
-      break;
-
-    case 0x02:
-      prepare_outputs(ctx, cdata, lc);
-      break;
-
-    case 0x04:
-      sign_input(ctx, cdata, lc);
+      tx_sign(&ctx, cdata, &lc);
       break;
 
     default:
