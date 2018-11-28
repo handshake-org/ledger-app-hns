@@ -19,21 +19,6 @@ ledger_bip32_node_s {
 extern uint16_t g_ledger_ui_step;
 extern uint16_t g_ledger_ui_step_count;
 
-void
-ledger_boot(void);
-
-void
-ledger_reset(void);
-
-void
-ledger_exit(unsigned int);
-
-uint16_t
-ledger_apdu_exchange(uint8_t, uint16_t);
-
-unsigned int
-ledger_pin_validated(void);
-
 uint8_t *
 ledger_init(void);
 
@@ -50,4 +35,35 @@ ledger_bip32_node_derive(
   uint8_t,
   char *
 );
+
+static inline void
+ledger_boot(void) {
+  os_boot();
+}
+
+static inline void
+ledger_reset(void) {
+  reset();
+}
+
+static inline void
+ledger_exit(unsigned int exit_code) {
+  BEGIN_TRY_L(exit) {
+    TRY_L(exit) {
+      os_sched_exit(exit_code);
+    }
+    FINALLY_L(exit);
+  }
+  END_TRY_L(exit);
+}
+
+static inline uint16_t
+ledger_apdu_exchange(uint8_t flags, uint16_t len) {
+  return io_exchange(CHANNEL_APDU | flags, len);
+}
+
+static inline unsigned int
+ledger_pin_validated(void) {
+  return os_global_pin_is_validated();
+}
 #endif

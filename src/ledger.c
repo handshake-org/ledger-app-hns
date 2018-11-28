@@ -3,36 +3,15 @@
 uint16_t g_ledger_ui_step;
 uint16_t g_ledger_ui_step_count;
 
-void
-ledger_boot(void) {
-  os_boot();
-}
-
-void
-ledger_reset(void) {
-  reset();
-}
-
-void
-ledger_exit(unsigned int exit_code) {
-  BEGIN_TRY_L(exit) {
-    TRY_L(exit) {
-      os_sched_exit(exit_code);
-    }
-    FINALLY_L(exit);
-  }
-  END_TRY_L(exit);
-}
-
-uint16_t
-ledger_apdu_exchange(uint8_t flags, uint16_t len) {
-  return io_exchange(CHANNEL_APDU | flags, len);
-}
-
-unsigned int
-ledger_pin_validated(void) {
-  return os_global_pin_is_validated();
-}
+/**
+ * The following functions are defined in ledger.h
+ *
+ * static inline void ledger_boot(void);
+ * static inline void ledger_reset(void);
+ * static inline void ledger_exit(void);
+ * static inline uint16_t ledger_apdu_exchange(void);
+ * static inline unsigned int ledger_pin_validated(void);
+ *
 
 uint8_t *
 ledger_init(void) {
