@@ -71,28 +71,15 @@ hns_apdu_get_wallet_public_key(
       THROW(HNS_EX_INCORRECT_P1_P2);
   }
 
-  if (lc < 1 || lc > HNS_MAX_PATH_LEN)
-    THROW(HNS_SW_INCORRECT_LENGTH);
-
   if (!ledger_pin_validated())
     THROW(HNS_SW_SECURITY_STATUS_NOT_SATISFIED);
 
   uint8_t depth;
+  uint32_t path[HNS_MAX_PATH];
 
   // TODO(boymanjor): use descriptive exception
-  if (!read_u8(cdata, &lc, &depth))
+  if (!read_bip32_path(buf, &lc, &depth, &path))
     THROW(INVALID_PARAMETER);
-
-  if (depth > HNS_MAX_PATH)
-    THROW(INVALID_PARAMETER);
-
-  uint32_t path[depth];
-  uint8_t i;
-
-  for (i = 0; i < depth; i++) {
-    if (!read_u32(cdata, &lc, &path[i], true))
-      THROW(INVALID_PARAMETER);
-  }
 
   ledger_bip32_node_t n;
   ledger_bip32_node_derive(&n, path, depth, hrp);

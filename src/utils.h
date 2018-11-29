@@ -331,6 +331,39 @@ read_covenant(uint8_t * buf, size_t * len, hns_covenant_t * c) {
   return true;
 }
 
+static inline bool
+read_bip32_path(
+  uint8_t * buf,
+  size_t * len,
+  uint8_t * depth,
+  uint32_t * path
+) {
+  if (*len < 1 || *len > HNS_MAX_PATH_LEN)
+    return false;
+
+  if (!read_u8(buf, len, depth))
+    return false;
+
+  if (*depth > HNS_MAX_PATH) {
+    buf -= 1;
+    len += 1;
+    return false;
+  }
+
+  uint8_t i;
+
+  for (i = 0; i < *depth; i++) {
+    if (!read_u32(buf, len, &path[i], true)) {
+      buf -= 4 + (4 * i);
+      len += 4 + (4 * i);
+      return false;
+    }
+  }
+
+  return true;
+}
+
+
 static inline size_t
 write_u8(uint8_t * buf, uint8_t u8) {
   if (buf == NULL)
