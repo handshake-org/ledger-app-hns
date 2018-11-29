@@ -47,14 +47,14 @@ typedef struct hns_output_s {
   hns_covenant_t covenant;
 } hns_output_t;
 
-typedef struct hns_transaction_ctx_s {
+typedef struct hns_transaction_s {
   uint32_t ver;
   uint32_t locktime;
   hns_input_t ins[HNS_MAX_INPUTS];
   hns_output_t outs[HNS_MAX_OUTPUTS];
   hns_varint_t ins_len;
   hns_varint_t outs_len;
-} hns_transaction_ctx_t;
+} hns_transaction_t;
 
 static inline bool
 read_u8(uint8_t * buf, size_t * len, uint8_t * u8) {

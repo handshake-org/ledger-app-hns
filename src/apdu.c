@@ -112,7 +112,7 @@ hns_apdu_get_wallet_public_key(
 
 static inline void
 tx_parse(
-  hns_transaction_ctx_t * ctx,
+  hns_transaction_t * tx,
   uint8_t * buf,
   size_t * len
 ) {
@@ -126,13 +126,13 @@ tx_parse(
   hns_output_t * out = NULL;
 
   if (parse_pos >= 0 && parse_pos < 4) {
-    if (in_pos < ctx->ins_len)
-      in = &ctx->ins[in_pos];
+    if (in_pos < tx->ins_len)
+      in = &tx->ins[in_pos];
   }
 
   if (parse_pos >= 4 && parse_pos < 8) {
-    if (out_pos < ctx->outs_len)
-      out = &ctx->outs[out_pos];
+    if (out_pos < tx->outs_len)
+      out = &tx->outs[out_pos];
   }
 
   // TODO(boymanjor): THROW(INVALID_PARSER_STATE)
@@ -193,8 +193,8 @@ tx_parse(
 
         rewind += in->script_len;
 
-        if (++in_pos < ctx->ins_len) {
-          in = &ctx->ins[in_pos];
+        if (++in_pos < tx->ins_len) {
+          in = &tx->ins[in_pos];
           parse_pos = 0;
           should_continue = true;
           break;
@@ -224,8 +224,8 @@ tx_parse(
 
         rewind += 1 + size_varint(out->covenant.len) + out->covenant.len;
 
-        if (++out_pos < ctx->outs_len) {
-          out = &ctx->outs[out_pos];
+        if (++out_pos < tx->outs_len) {
+          out = &tx->outs[out_pos];
           parse_pos = 5;
           should_continue = true;
           break;
@@ -252,7 +252,7 @@ tx_parse(
 
 static inline void
 tx_sign(
-  hns_transaction_ctx_t * ctx,
+  hns_transaction_t * tx,
   uint8_t * buf,
   size_t * len
 ) {
@@ -260,7 +260,7 @@ tx_sign(
 
 volatile uint8_t
 hns_apdu_tx_sign(volatile uint8_t * buf, volatile uint8_t * flags) {
-  static hns_transaction_ctx_t ctx;
+  static hns_transaction_t tx;
   uint8_t p1 = buf[HNS_OFFSET_P1];
   uint8_t p2 = buf[HNS_OFFSET_P2];
   size_t lc = buf[HNS_OFFSET_LC];
@@ -274,11 +274,11 @@ hns_apdu_tx_sign(volatile uint8_t * buf, volatile uint8_t * flags) {
       if (!ledger_pin_validated())
         THROW(HNS_EX_SECURITY_STATUS_NOT_SATISFIED);
 
-      memset(&ctx, 0, sizeof(ctx));
-      read_u32(cdata, &lc, &ctx.ver, true);
-      read_u32(cdata, &lc, &ctx.locktime, true);
-      read_varint(cdata, &lc, &ctx.ins_len);
-      read_varint(cdata, &lc, &ctx.outs_len);
+      memset(&tx, 0, sizeof(tx));
+      read_u32(cdata, &lc, &tx.ver, true);
+      read_u32(cdata, &lc, &tx.locktime, true);
+      read_varint(cdata, &lc, &tx.ins_len);
+      read_varint(cdata, &lc, &tx.outs_len);
 
       if (cdata - lc != buf + HNS_OFFSET_CDATA)
         THROW(HNS_EX_INCORRECT_LENGTH);
@@ -293,11 +293,11 @@ hns_apdu_tx_sign(volatile uint8_t * buf, volatile uint8_t * flags) {
 
   switch(p2) {
     case 0x00:
-      tx_parse(&ctx, cdata, &lc);
+      tx_parse(&tx, cdata, &lc);
       break;
 
     case 0x01:
-      tx_sign(&ctx, cdata, &lc);
+      tx_sign(&tx, cdata, &lc);
       break;
 
     default:
