@@ -114,8 +114,8 @@ tx_parse(
   static int in_pos = 0;
   static int out_pos = 0;
   static int parse_pos = 0;
-  static int parse_buf_len = 0;
-  static uint8_t * parse_buf[2 * 336]; // Double the size of G_apdu_io_buffer
+  static int store_len = 0;
+  static uint8_t store[2 * 336]; // Double the size of G_apdu_io_buffer
 
   hns_input_t * in = NULL;
   hns_output_t * out = NULL;
@@ -134,12 +134,14 @@ tx_parse(
   if (in == NULL && out == NULL)
     THROW(INVALID_PARAMETER);
 
-  if (parse_buf_len == 0) {
-    memmove(parse_buf, buf, *len);
+  if (store_len == 0) {
+    memmove(store, buf, *len);
   } else {
-    memmove(parse_buf + parse_buf_len, buf, *len);
-    *len += parse_buf_len;
+    memmove(store + store_len, buf, *len);
+    *len += store_len;
   }
+
+  buf = store;
 
   for (;;) {
     int rewind = 0;
@@ -147,7 +149,7 @@ tx_parse(
 
     switch(parse_pos) {
       case 0:
-        if (!read_prevout(parse_buf, len, &in->prevout)) {
+        if (!read_prevout(buf, len, &in->prevout)) {
           parse_pos = 0;
           break;
         }
@@ -155,7 +157,7 @@ tx_parse(
         rewind += sizeof(in->prevout.hash) + sizeof(in->prevout.index);
 
       case 1:
-        if (!read_u64(parse_buf, len, &in->val, true)) {
+        if (!read_u64(buf, len, &in->val, true)) {
           parse_pos = 1;
           break;
         }
@@ -163,7 +165,7 @@ tx_parse(
         rewind += sizeof(in->val);
 
       case 2:
-        if (!read_u32(parse_buf, len, &in->seq, true)) {
+        if (!read_u32(buf, len, &in->seq, true)) {
           parse_pos = 2;
           break;
         }
@@ -171,7 +173,7 @@ tx_parse(
         rewind += sizeof(in->seq);
 
       case 3:
-        if (!read_varint(parse_buf, len, &in->script_len)) {
+        if (!read_varint(buf, len, &in->script_len)) {
           parse_pos = 3;
           break;
         }
@@ -179,7 +181,7 @@ tx_parse(
         rewind += size_varint(in->script_len);
 
       case 4:
-        if (!read_bytes(parse_buf, len, in->script, in->script_len)) {
+        if (!read_bytes(buf, len, in->script, in->script_len)) {
           parse_pos = 4;
           break;
         }
@@ -194,7 +196,7 @@ tx_parse(
         }
 
       case 5:
-        if (!read_u64(parse_buf, len, &out->val, true)) {
+        if (!read_u64(buf, len, &out->val, true)) {
           parse_pos = 5;
           break;
         }
@@ -202,7 +204,7 @@ tx_parse(
         rewind += sizeof(out->val);
 
       case 6:
-        if (!read_addr(parse_buf, len, &out->addr)) {
+        if (!read_addr(buf, len, &out->addr)) {
           parse_pos = 6;
           break;
         }
@@ -210,7 +212,7 @@ tx_parse(
         rewind += 2 + out->addr.len;
 
       case 7:
-        if (!read_covenant(parse_buf, len, &out->covenant)) {
+        if (!read_covenant(buf, len, &out->covenant)) {
           parse_pos = 7;
           break;
         }
@@ -220,7 +222,7 @@ tx_parse(
         if (++out_pos < ctx->outs_len) {
           out = &ctx->outs[out_pos];
           parse_pos = 5;
-		  should_continue = true;
+          should_continue = true;
           break;
         }
 
@@ -231,17 +233,14 @@ tx_parse(
     if (should_continue)
       continue;
 
-    if (*len > 0) {
-      memmove(parse_buf - rewind, parse_buf, *len);
-    }
+    if (*len > 0)
+      memmove(store, buf, *len);
 
     // TODO(boymanjor): THROW(INVALID_PARSER_STATE)
-    if (*len < 0) {
+    if (*len < 0)
       THROW(EXCEPTION);
-    }
 
-    parse_buf -= rewind;
-    parse_buf_len = *len;
+    store_len = *len;
     break;
   }
 }
