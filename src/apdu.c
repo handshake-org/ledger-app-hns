@@ -111,91 +111,116 @@ tx_parse(
   uint8_t * buf,
   size_t * len
 ) {
+  static int in_pos = 0;
+  static int out_pos = 0;
+  static int parse_pos = 0;
+  static int parse_buf_len = 0;
+  static uint8_t * parse_buf[2 * 336]; // Double the size of G_apdu_io_buffer
+
+  hns_input_t * in = NULL;
+  hns_output_t * out = NULL;
+
+  if (parse_pos >= 0 && parse_pos < 4) {
+    if (in_pos < ctx->ins_len)
+      in = &ctx->ins[in_pos];
+  }
+
+  if (parse_pos >= 4 && parse_pos < 8) {
+    if (out_pos < ctx->outs_len)
+      out = &ctx->outs[out_pos];
+  }
+
+  // TODO(boymanjor): THROW(INVALID_PARSER_STATE)
+  if (in == NULL && out == NULL)
+    THROW(INVALID_PARAMETER);
+
+  if (parse_buf_len == 0) {
+    memmove(parse_buf, buf, *len);
+  } else {
+    memmove(parse_buf + parse_buf_len, buf, *len);
+    *len += parse_buf_len;
+  }
+
   for (;;) {
-    static int in_pos = 0;
-    static int out_pos = 0;
-    static int parse_pos = 0;
-
-    hns_input_t * in = NULL;
-    hns_output_t * out = NULL;
-
-    if (parse_pos >= 0 && parse_pos < 4) {
-      if (in_pos < ctx->ins_len)
-        in = &ctx->ins[in_pos];
-    }
-
-    if (parse_pos >= 4 && parse_pos < 8) {
-      if (out_pos < ctx->outs_len)
-        out = &ctx->outs[out_pos];
-    }
-
-    // TODO(boymanjor): THROW(INVALID_PARSER_STATE)
-    if (in == NULL && out == NULL)
-      THROW(INVALID_PARAMETER);
-
+    int rewind = 0;
+    bool should_continue = false;
 
     switch(parse_pos) {
       case 0:
-        if (!read_prevout(buf, len, &in->prevout)) {
+        if (!read_prevout(parse_buf, len, &in->prevout)) {
           parse_pos = 0;
           break;
         }
 
+        rewind += sizeof(in->prevout.hash) + sizeof(in->prevout.index);
+
       case 1:
-        if (!read_u64(buf, len, &in->val, true)) {
+        if (!read_u64(parse_buf, len, &in->val, true)) {
           parse_pos = 1;
           break;
         }
 
+        rewind += sizeof(in->val);
+
       case 2:
-        if (!read_u32(buf, len, &in->seq, true)) {
+        if (!read_u32(parse_buf, len, &in->seq, true)) {
           parse_pos = 2;
           break;
         }
 
+        rewind += sizeof(in->seq);
+
       case 3:
-        if (!read_varint(buf, len, &in->script_len)) {
+        if (!read_varint(parse_buf, len, &in->script_len)) {
           parse_pos = 3;
           break;
         }
 
+        rewind += size_varint(in->script_len);
+
       case 4:
-        if (!read_bytes(buf, len, in->script, in->script_len)) {
+        if (!read_bytes(parse_buf, len, in->script, in->script_len)) {
           parse_pos = 4;
           break;
         }
 
-        in_pos += 1;
+        rewind += in->script_len;
 
-        if (in_pos < ctx->ins_len) {
+        if (++in_pos < ctx->ins_len) {
           in = &ctx->ins[in_pos];
           parse_pos = 0;
+          should_continue = true;
           break;
         }
 
       case 5:
-        if (!read_u64(buf, len, &out->val, true)) {
+        if (!read_u64(parse_buf, len, &out->val, true)) {
           parse_pos = 5;
           break;
         }
 
+        rewind += sizeof(out->val);
+
       case 6:
-        if (!read_addr(buf, len, &out->addr)) {
+        if (!read_addr(parse_buf, len, &out->addr)) {
           parse_pos = 6;
           break;
         }
 
+        rewind += 2 + out->addr.len;
+
       case 7:
-        if (!read_covenant(buf, len, &out->covenant)) {
+        if (!read_covenant(parse_buf, len, &out->covenant)) {
           parse_pos = 7;
           break;
         }
 
-        out_pos += 1;
+        rewind += 1 + size_varint(out->covenant.len) + out->covenant.len;
 
-        if (out_pos < ctx->outs_len) {
+        if (++out_pos < ctx->outs_len) {
           out = &ctx->outs[out_pos];
           parse_pos = 5;
+		  should_continue = true;
           break;
         }
 
@@ -203,8 +228,21 @@ tx_parse(
         break;
     }
 
-    if (in_pos == ctx->ins_len && out_pos == ctx->outs_len)
-      break;
+    if (should_continue)
+      continue;
+
+    if (*len > 0) {
+      memmove(parse_buf - rewind, parse_buf, *len);
+    }
+
+    // TODO(boymanjor): THROW(INVALID_PARSER_STATE)
+    if (*len < 0) {
+      THROW(EXCEPTION);
+    }
+
+    parse_buf -= rewind;
+    parse_buf_len = *len;
+    break;
   }
 }
 

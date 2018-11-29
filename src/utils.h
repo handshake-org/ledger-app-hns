@@ -17,7 +17,7 @@
 typedef uint64_t hns_varint_t;
 
 typedef struct hns_prevout_s {
-  uint8_t  hash[32];
+  uint8_t hash[32];
   uint32_t index;
 } hns_prevout_t;
 
