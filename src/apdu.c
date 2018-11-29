@@ -27,11 +27,13 @@ hns_apdu_get_firmware_version(
   if (!ledger_pin_validated())
     THROW(HNS_EX_SECURITY_STATUS_NOT_SATISFIED);
 
-  buf[0] = HNS_APP_MAJOR_VERSION;
-  buf[1] = HNS_APP_MINOR_VERSION;
-  buf[2] = HNS_APP_PATCH_VERSION;
+  uint8_t len = 0;
 
-  return 3;
+  len += write_u8(buf, HNS_APP_MAJOR_VERSION);
+  len += write_u8(buf, HNS_APP_MINOR_VERSION);
+  len += write_u8(buf, HNS_APP_PATCH_VERSION);
+
+  return len;
 }
 
 volatile uint8_t
@@ -77,8 +79,8 @@ hns_apdu_get_wallet_public_key(
 
   uint8_t depth;
 
+  // TODO(boymanjor): use descriptive exception
   if (!read_u8(cdata, &lc, &depth))
-    // TODO(boymanjor): use descriptive exception
     THROW(INVALID_PARAMETER);
 
   if (depth > HNS_MAX_PATH)
@@ -95,14 +97,17 @@ hns_apdu_get_wallet_public_key(
   ledger_bip32_node_t n;
   ledger_bip32_node_derive(&n, path, depth, hrp);
 
-  uint8_t * out = buf;
   uint8_t len = 0;
 
-  len += write_varbytes(out, n.pub, sizeof(n.pub));
-  len += write_varbytes(out, n.addr, sizeof(n.addr));
-  len += write_bytes(out, n.code, sizeof(n.code));
+  len += write_varbytes(buf, n.pub, sizeof(n.pub));
+  len += write_varbytes(buf, n.addr, sizeof(n.addr));
+  len += write_bytes(buf, n.code, sizeof(n.code));
 
-  return out - buf;
+  // TODO(boymanjor): use descriptive exception
+  if (len != 2 + sizeof(n.pub) + sizeof(n.addr) + sizeof(n.code))
+    THROW(EXCEPTION);
+
+  return len;
 }
 
 static inline void

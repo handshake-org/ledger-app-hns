@@ -403,7 +403,7 @@ write_u64(uint8_t * buf, uint64_t u64, bool be) {
 static inline size_t
 write_bytes(uint8_t * buf, const uint8_t * bytes, size_t sz) {
   if (buf == NULL)
-    return sz;
+    return 0;
 
   memmove(buf, bytes, sz);
   buf += sz;
