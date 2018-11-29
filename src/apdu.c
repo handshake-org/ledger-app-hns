@@ -29,9 +29,13 @@ hns_apdu_get_firmware_version(
 
   uint8_t len = 0;
 
-  len += write_u8(buf, HNS_APP_MAJOR_VERSION);
-  len += write_u8(buf, HNS_APP_MINOR_VERSION);
-  len += write_u8(buf, HNS_APP_PATCH_VERSION);
+  len += write_u8(&buf, HNS_APP_MAJOR_VERSION);
+  len += write_u8(&buf, HNS_APP_MINOR_VERSION);
+  len += write_u8(&buf, HNS_APP_PATCH_VERSION);
+
+  // TODO(boymanjor): better exception
+  if (len != 3)
+    THROW(EXCEPTION);
 
   return len;
 }
