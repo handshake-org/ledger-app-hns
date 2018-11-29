@@ -11,7 +11,7 @@ uint16_t g_ledger_ui_step_count;
  * static inline void ledger_exit(void);
  * static inline uint16_t ledger_apdu_exchange(void);
  * static inline unsigned int ledger_pin_validated(void);
- *
+ */
 
 uint8_t *
 ledger_init(void) {
