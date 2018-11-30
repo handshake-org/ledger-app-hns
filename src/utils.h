@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
+#include "ledger.h"
 
 #define HNS_APP_NAME "Handshake"
 #define HNS_MAX_PATH 10
@@ -57,11 +59,11 @@ typedef struct hns_transaction_s {
 } hns_transaction_t;
 
 static inline bool
-read_u8(uint8_t ** buf, size_t * len, uint8_t * u8) {
+read_u8(uint8_t ** buf, uint8_t * len, uint8_t * u8) {
   if (*len < 1)
     return false;
 
-  *u8 = *(buf)[0];
+  *u8 = (*buf)[0];
   *buf += 1;
   *len -= 1;
 
@@ -69,85 +71,86 @@ read_u8(uint8_t ** buf, size_t * len, uint8_t * u8) {
 }
 
 static inline bool
-read_u16(uint8_t ** buf, size_t * len, uint16_t * u16, bool be) {
+read_u16(uint8_t ** buf, uint8_t * len, uint16_t * u16, bool be) {
   if (*len < 2)
     return false;
 
-  *u16 = 0;
-
   if (be) {
-    *u16 |= ((uint16_t) *(buf)[0]) << 8;
-    *u16 |=  (uint16_t) *(buf)[1];
+    *u16 = 0;
+    *u16 |= ((uint16_t) (*buf)[0]) << 8;
+    *u16 |=  (uint16_t) (*buf)[1];
   } else {
     memmove(u16, *buf, 2);
   }
 
   *buf += 2;
-  len -= 2;
+  *len -= 2;
 
   return true;
 }
 
 static inline bool
-read_u32(uint8_t ** buf, size_t * len, uint32_t * u32, bool be) {
+read_u32(uint8_t ** buf, uint8_t * len, uint32_t * u32, bool be) {
   if (*len < 4)
     return false;
 
-  *u32 = 0;
-
   if (be) {
-    *u32 |= ((uint32_t) *(buf)[0]) << 24;
-    *u32 |= ((uint32_t) *(buf)[1]) << 16;
-    *u32 |= ((uint32_t) *(buf)[2]) << 8;
-    *u32 |=  (uint32_t) *(buf)[3];
+    *u32 = 0;
+    *u32 |= ((uint32_t) (*buf)[0]) << 24;
+    *u32 |= ((uint32_t) (*buf)[1]) << 16;
+    *u32 |= ((uint32_t) (*buf)[2]) << 8;
+    *u32 |=  (uint32_t) (*buf)[3];
   } else {
-    memmove(u32, buf, 4);
+    memmove(u32, *buf, 4);
   }
 
   *buf += 4;
-  len -= 4;
+  *len -= 4;
 
   return true;
 }
 
 static inline bool
-read_u64(uint8_t ** buf, size_t * len, uint64_t * u64, bool be) {
-  *buf = 0;
+read_u64(uint8_t ** buf, uint8_t * len, uint64_t * u64, bool be) {
+  if (*len < 8)
+    return false;
 
   if (be) {
-    *u64 |= ((uint64_t) *(buf)[0]) << 56;
-    *u64 |= ((uint64_t) *(buf)[1]) << 48;
-    *u64 |= ((uint64_t) *(buf)[2]) << 40;
-    *u64 |= ((uint64_t) *(buf)[3]) << 32;
-    *u64 |= ((uint64_t) *(buf)[4]) << 24;
-    *u64 |= ((uint64_t) *(buf)[5]) << 16;
-    *u64 |= ((uint64_t) *(buf)[6]) << 8;
-    *u64 |=  (uint64_t) *(buf)[7];
+    *u64 = 0;
+    *u64 |= ((uint64_t) (*buf)[0]) << 56;
+    *u64 |= ((uint64_t) (*buf)[1]) << 48;
+    *u64 |= ((uint64_t) (*buf)[2]) << 40;
+    *u64 |= ((uint64_t) (*buf)[3]) << 32;
+    *u64 |= ((uint64_t) (*buf)[4]) << 24;
+    *u64 |= ((uint64_t) (*buf)[5]) << 16;
+    *u64 |= ((uint64_t) (*buf)[6]) << 8;
+    *u64 |=  (uint64_t) (*buf)[7];
   } else {
-    memmove(u64, buf, 8);
+    memmove(u64, *buf, 8);
   }
 
   *buf += 8;
-  len -= 8;
+  *len -= 8;
 
   return true;
 }
 
 static inline bool
-read_varint(uint8_t ** buf, size_t * len, uint64_t * varint) {
-  uint8_t prefix = *(buf++);
-  len -= 1;
+read_varint(uint8_t ** buf, uint8_t * len, uint64_t * varint) {
+  uint8_t prefix = *(buf)[0];
+  *buf += 1;
+  *len -= 1;
 
   switch (prefix) {
     case 0xff: {
       if(!read_u64(buf, len, varint, true)) {
-        buf -= 1;
+        *buf -= 1;
         *len += 1;
         return false;
       }
 
       if (*varint <= 0xffffffff) {
-        buf -= 9;
+        *buf -= 9;
         *len += 9;
         return false;
       }
@@ -159,13 +162,13 @@ read_varint(uint8_t ** buf, size_t * len, uint64_t * varint) {
       uint32_t v;
 
       if (!read_u32(buf, len, &v, true)) {
-        buf -= 1;
+        *buf -= 1;
         *len += 1;
         return false;
       }
 
       if (v <= 0xffff) {
-        buf -= 5;
+        *buf -= 5;
         *len += 5;
         return false;
       }
@@ -179,13 +182,13 @@ read_varint(uint8_t ** buf, size_t * len, uint64_t * varint) {
       uint16_t v;
 
       if (!read_u16(buf, len, &v, true)) {
-        buf -= 1;
+        *buf -= 1;
         *len += 1;
         return false;
       }
 
       if (v < 0xfd) {
-        buf -= 3;
+        *buf -= 3;
         *len += 3;
         return false;
       }
@@ -199,7 +202,7 @@ read_varint(uint8_t ** buf, size_t * len, uint64_t * varint) {
       uint8_t v;
 
       if (!read_u8(buf, len, &v)) {
-        buf -= 1;
+        *buf -= 1;
         *len += 1;
         return false;
       }
@@ -214,7 +217,7 @@ read_varint(uint8_t ** buf, size_t * len, uint64_t * varint) {
 }
 
 static inline bool
-read_varsize(uint8_t ** buf, size_t * len, size_t * val) {
+read_varsize(uint8_t ** buf, uint8_t * len, size_t * val) {
   size_t v;
 
   if (!read_varint(buf, len, (uint64_t *)&v))
@@ -231,14 +234,14 @@ read_varsize(uint8_t ** buf, size_t * len, size_t * val) {
 }
 
 static inline bool
-read_bytes(uint8_t ** buf, size_t * len, uint8_t * out, size_t sz) {
+read_bytes(uint8_t ** buf, uint8_t * len, uint8_t * out, size_t sz) {
   if (*len < sz)
     return false;
 
-  memmove(out, buf, sz);
+  memmove(out, *buf, sz);
 
   *buf += sz;
-  len -= sz;
+  *len -= sz;
 
   return true;
 }
@@ -246,7 +249,7 @@ read_bytes(uint8_t ** buf, size_t * len, uint8_t * out, size_t sz) {
 static inline bool
 read_varbytes(
   uint8_t ** buf,
-  size_t * len,
+  uint8_t * len,
   uint8_t * out,
   size_t out_sz,
   size_t * out_len
@@ -269,7 +272,7 @@ read_varbytes(
 }
 
 static inline bool
-read_prevout(uint8_t ** buf, size_t * len, hns_prevout_t * p) {
+read_prevout(uint8_t ** buf, uint8_t * len, hns_prevout_t * p) {
   if (*len < 36)
     return false;
 
@@ -277,7 +280,7 @@ read_prevout(uint8_t ** buf, size_t * len, hns_prevout_t * p) {
     return false;
 
   if (!read_u32(buf, len, &p->index, true)) {
-    buf -= 32;
+    *buf -= 32;
     *len += 32;
     return false;
   }
@@ -286,7 +289,7 @@ read_prevout(uint8_t ** buf, size_t * len, hns_prevout_t * p) {
 }
 
 static inline bool
-read_addr(uint8_t ** buf, size_t * len, hns_addr_t * a) {
+read_addr(uint8_t ** buf, uint8_t * len, hns_addr_t * a) {
   // TODO(boymanjor): handle p2sh
   if (*len < 22)
     return false;
@@ -295,13 +298,13 @@ read_addr(uint8_t ** buf, size_t * len, hns_addr_t * a) {
     return false;
 
   if (!read_u8(buf, len, &a->len)) {
-    buf -= 1;
+    *buf -= 1;
     *len += 1;
     return false;
   }
 
   if (!read_u8(buf, len, a->data)) {
-    buf -= 2;
+    *buf -= 2;
     *len += 2;
     return false;
   }
@@ -310,7 +313,7 @@ read_addr(uint8_t ** buf, size_t * len, hns_addr_t * a) {
 }
 
 static inline bool
-read_covenant(uint8_t ** buf, size_t * len, hns_covenant_t * c) {
+read_covenant(uint8_t ** buf, uint8_t * len, hns_covenant_t * c) {
   if (*len < 2)
     return false;
 
@@ -318,13 +321,13 @@ read_covenant(uint8_t ** buf, size_t * len, hns_covenant_t * c) {
     return false;
 
   if (!read_varint(buf, len, &c->len)) {
-    buf -= 1;
+    *buf -= 1;
     *len += 1;
     return false;
   }
 
   if (!read_bytes(buf, len, c->items, c->len)) {
-    buf -= 1 + c->len;
+    *buf -= 1 + c->len;
     *len += 1 + c->len;
     return false;
   }
@@ -335,7 +338,7 @@ read_covenant(uint8_t ** buf, size_t * len, hns_covenant_t * c) {
 static inline bool
 read_bip32_path(
   uint8_t ** buf,
-  size_t * len,
+  uint8_t * len,
   uint8_t * depth,
   uint32_t * path
 ) {
@@ -346,7 +349,7 @@ read_bip32_path(
     return false;
 
   if (*depth > HNS_MAX_PATH) {
-    buf -= 1;
+    *buf -= 1;
     *len += 1;
     return false;
   }
@@ -355,7 +358,7 @@ read_bip32_path(
 
   for (i = 0; i < *depth; i++) {
     if (!read_u32(buf, len, &path[i], true)) {
-      buf -= 4 + (4 * i);
+      *buf -= 4 + (4 * i);
       *len += 4 + (4 * i);
       return false;
     }
@@ -363,7 +366,6 @@ read_bip32_path(
 
   return true;
 }
-
 
 static inline size_t
 write_u8(uint8_t ** buf, uint8_t u8) {
@@ -385,7 +387,7 @@ write_u16(uint8_t ** buf, uint16_t u16, bool be) {
     *(buf)[0] = (uint8_t)u16;
     *(buf)[1] = (uint8_t)(u16 >> 8);
   } else {
-    memmove(buf, &u16, 2);
+    memmove(*buf, &u16, 2);
   }
 
   *buf += 2;
@@ -399,12 +401,12 @@ write_u32(uint8_t ** buf, uint32_t u32, bool be) {
     return 0;
 
   if (be) {
-    (buf)[0] = (uint8_t)u32;
-    (buf)[1] = (uint8_t)(u32 >> 8);
-    (buf)[2] = (uint8_t)(u32 >> 16);
-    (buf)[3] = (uint8_t)(u32 >> 24);
+    *(buf)[0] = (uint8_t)u32;
+    *(buf)[1] = (uint8_t)(u32 >> 8);
+    *(buf)[2] = (uint8_t)(u32 >> 16);
+    *(buf)[3] = (uint8_t)(u32 >> 24);
   } else {
-    memmove(buf, &u32, 4);
+    memmove(*buf, &u32, 4);
   }
 
   *buf += 4;
@@ -427,7 +429,7 @@ write_u64(uint8_t ** buf, uint64_t u64, bool be) {
     *(buf)[6] = (uint8_t)(u64 >> 48);
     *(buf)[7] = (uint8_t)(u64 >> 56);
   } else {
-    memmove(buf, &u64, 8);
+    memmove(*buf, &u64, 8);
   }
 
   *buf += 8;
@@ -440,7 +442,7 @@ write_bytes(uint8_t ** buf, const uint8_t * bytes, size_t sz) {
   if (buf == NULL || *buf == NULL)
     return 0;
 
-  memmove(buf, bytes, sz);
+  memmove(*buf, bytes, sz);
   *buf += sz;
 
   return sz;

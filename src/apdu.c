@@ -13,7 +13,7 @@ hns_apdu_get_firmware_version(
 ) {
   uint8_t p1 = buf[HNS_OFFSET_P1];
   uint8_t p2 = buf[HNS_OFFSET_P2];
-  size_t lc = buf[HNS_OFFSET_LC];
+  uint8_t lc = buf[HNS_OFFSET_LC];
 
   if(p1 != 0)
     THROW(HNS_EX_INCORRECT_P1_P2);
@@ -47,7 +47,7 @@ hns_apdu_get_wallet_public_key(
 ) {
   uint8_t p1 = buf[HNS_OFFSET_P1];
   uint8_t p2 = buf[HNS_OFFSET_P2];
-  size_t lc = buf[HNS_OFFSET_LC];
+  uint8_t lc = buf[HNS_OFFSET_LC];
   uint8_t * cdata = buf + HNS_OFFSET_CDATA;
 
   switch(p1) {
@@ -82,7 +82,7 @@ hns_apdu_get_wallet_public_key(
   uint32_t path[HNS_MAX_PATH];
 
   // TODO(boymanjor): use descriptive exception
-  if (!read_bip32_path(buf, &lc, &depth, &path))
+  if (!read_bip32_path(&cdata, &lc, &depth, path))
     THROW(INVALID_PARAMETER);
 
   ledger_bip32_node_t n;
@@ -90,9 +90,9 @@ hns_apdu_get_wallet_public_key(
 
   uint8_t len = 0;
 
-  len += write_varbytes(buf, n.pub, sizeof(n.pub));
-  len += write_varbytes(buf, n.addr, sizeof(n.addr));
-  len += write_bytes(buf, n.code, sizeof(n.code));
+  len += write_varbytes(&buf, n.pub, sizeof(n.pub));
+  len += write_varbytes(&buf, n.addr, sizeof(n.addr));
+  len += write_bytes(&buf, n.code, sizeof(n.code));
 
   // TODO(boymanjor): use descriptive exception
   if (len != 2 + sizeof(n.pub) + sizeof(n.addr) + sizeof(n.code))
@@ -105,7 +105,7 @@ static inline void
 tx_parse(
   hns_transaction_t * tx,
   uint8_t * buf,
-  size_t * len
+  uint8_t * len
 ) {
   static int in_pos = 0;
   static int out_pos = 0;
@@ -140,49 +140,38 @@ tx_parse(
   buf = store;
 
   for (;;) {
-    int rewind = 0;
     bool should_continue = false;
 
     switch(parse_pos) {
       case 0:
-        if (!read_prevout(buf, len, &in->prevout)) {
+        if (!read_prevout(&buf, len, &in->prevout)) {
           parse_pos = 0;
           break;
         }
 
-        rewind += sizeof(in->prevout.hash) + sizeof(in->prevout.index);
-
       case 1:
-        if (!read_u64(buf, len, &in->val, true)) {
+        if (!read_u64(&buf, len, &in->val, true)) {
           parse_pos = 1;
           break;
         }
 
-        rewind += sizeof(in->val);
-
       case 2:
-        if (!read_u32(buf, len, &in->seq, true)) {
+        if (!read_u32(&buf, len, &in->seq, true)) {
           parse_pos = 2;
           break;
         }
 
-        rewind += sizeof(in->seq);
-
       case 3:
-        if (!read_varint(buf, len, &in->script_len)) {
+        if (!read_varint(&buf, len, &in->script_len)) {
           parse_pos = 3;
           break;
         }
 
-        rewind += size_varint(in->script_len);
-
       case 4:
-        if (!read_bytes(buf, len, in->script, in->script_len)) {
+        if (!read_bytes(&buf, len, in->script, in->script_len)) {
           parse_pos = 4;
           break;
         }
-
-        rewind += in->script_len;
 
         if (++in_pos < tx->ins_len) {
           in = &tx->ins[in_pos];
@@ -192,28 +181,22 @@ tx_parse(
         }
 
       case 5:
-        if (!read_u64(buf, len, &out->val, true)) {
+        if (!read_u64(&buf, len, &out->val, true)) {
           parse_pos = 5;
           break;
         }
 
-        rewind += sizeof(out->val);
-
       case 6:
-        if (!read_addr(buf, len, &out->addr)) {
+        if (!read_addr(&buf, len, &out->addr)) {
           parse_pos = 6;
           break;
         }
 
-        rewind += 2 + out->addr.len;
-
       case 7:
-        if (!read_covenant(buf, len, &out->covenant)) {
+        if (!read_covenant(&buf, len, &out->covenant)) {
           parse_pos = 7;
           break;
         }
-
-        rewind += 1 + size_varint(out->covenant.len) + out->covenant.len;
 
         if (++out_pos < tx->outs_len) {
           out = &tx->outs[out_pos];
@@ -254,7 +237,7 @@ hns_apdu_tx_sign(volatile uint8_t * buf, volatile uint8_t * flags) {
   static hns_transaction_t tx;
   uint8_t p1 = buf[HNS_OFFSET_P1];
   uint8_t p2 = buf[HNS_OFFSET_P2];
-  size_t lc = buf[HNS_OFFSET_LC];
+  uint8_t lc = buf[HNS_OFFSET_LC];
   uint8_t * cdata = buf + HNS_OFFSET_CDATA;
 
   switch(p1) {
@@ -266,10 +249,10 @@ hns_apdu_tx_sign(volatile uint8_t * buf, volatile uint8_t * flags) {
         THROW(HNS_EX_SECURITY_STATUS_NOT_SATISFIED);
 
       memset(&tx, 0, sizeof(tx));
-      read_u32(cdata, &lc, &tx.ver, true);
-      read_u32(cdata, &lc, &tx.locktime, true);
-      read_varint(cdata, &lc, &tx.ins_len);
-      read_varint(cdata, &lc, &tx.outs_len);
+      read_u32(&cdata, &lc, &tx.ver, true);
+      read_u32(&cdata, &lc, &tx.locktime, true);
+      read_varint(&cdata, &lc, &tx.ins_len);
+      read_varint(&cdata, &lc, &tx.outs_len);
 
       if (cdata - lc != buf + HNS_OFFSET_CDATA)
         THROW(HNS_EX_INCORRECT_LENGTH);
