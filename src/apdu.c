@@ -6,6 +6,15 @@
 #include "segwit-addr.h"
 #include "utils.h"
 
+static inline void
+addr_create_p2pkh(char *, uint8_t *, uint8_t *);
+
+static inline void
+tx_parse(hns_transaction_t *, uint8_t *, uint8_t *);
+
+static inline void
+tx_sign(hns_transaction_t *, uint8_t *, uint8_t *);
+
 volatile uint8_t
 hns_apdu_get_firmware_version(
   volatile uint8_t * buf,
@@ -85,20 +94,82 @@ hns_apdu_get_wallet_public_key(
   if (!read_bip32_path(&cdata, &lc, &depth, path))
     THROW(INVALID_PARAMETER);
 
+  uint8_t addr[42];
   ledger_bip32_node_t n;
-  ledger_bip32_node_derive(&n, path, depth, hrp);
+  ledger_bip32_node_derive(&n, path, depth);
+  addr_create_p2pkh(hrp, n.pub, &addr);
 
   uint8_t len = 0;
-
   len += write_varbytes(&buf, n.pub, sizeof(n.pub));
-  len += write_varbytes(&buf, n.addr, sizeof(n.addr));
+  len += write_varbytes(&buf, addr, sizeof(addr));
   len += write_bytes(&buf, n.code, sizeof(n.code));
 
   // TODO(boymanjor): use descriptive exception
-  if (len != 2 + sizeof(n.pub) + sizeof(n.addr) + sizeof(n.code))
+  if (len != 109)
     THROW(EXCEPTION);
 
   return len;
+}
+
+volatile uint8_t
+hns_apdu_tx_sign(volatile uint8_t * buf, volatile uint8_t * flags) {
+  static hns_transaction_t tx;
+  uint8_t p1 = buf[HNS_OFFSET_P1];
+  uint8_t p2 = buf[HNS_OFFSET_P2];
+  uint8_t lc = buf[HNS_OFFSET_LC];
+  uint8_t * cdata = buf + HNS_OFFSET_CDATA;
+
+  switch(p1) {
+    case 0x00:
+      break;
+
+    case 0x01: {
+      if (!ledger_pin_validated())
+        THROW(HNS_EX_SECURITY_STATUS_NOT_SATISFIED);
+
+      memset(&tx, 0, sizeof(tx));
+      read_u32(&cdata, &lc, &tx.ver, true);
+      read_u32(&cdata, &lc, &tx.locktime, true);
+      read_varint(&cdata, &lc, &tx.ins_len);
+      read_varint(&cdata, &lc, &tx.outs_len);
+
+      if (cdata - lc != buf + HNS_OFFSET_CDATA)
+        THROW(HNS_EX_INCORRECT_LENGTH);
+
+      return 0;
+    }
+
+    default:
+      THROW(HNS_EX_INCORRECT_P1_P2);
+      break;
+  };
+
+  switch(p2) {
+    case 0x00:
+      tx_parse(&tx, cdata, &lc);
+      break;
+
+    case 0x01:
+      tx_sign(&tx, cdata, &lc);
+      break;
+
+    default:
+      THROW(HNS_EX_INCORRECT_P1_P2);
+      break;
+  }
+
+  return 0;
+}
+
+static inline void
+addr_create_p2pkh(char * hrp, uint8_t * pub, uint8_t * addr) {
+  uint8_t pkh[20];
+
+  if (blake2b(pkh, 20, NULL, 0, pub, 33))
+    THROW(EXCEPTION);
+
+  if (!segwit_addr_encode(addr, hrp, 0, pkh, 20))
+    THROW(EXCEPTION);
 }
 
 static inline void
@@ -228,56 +299,6 @@ static inline void
 tx_sign(
   hns_transaction_t * tx,
   uint8_t * buf,
-  size_t * len
+  uint8_t * len
 ) {
-}
-
-volatile uint8_t
-hns_apdu_tx_sign(volatile uint8_t * buf, volatile uint8_t * flags) {
-  static hns_transaction_t tx;
-  uint8_t p1 = buf[HNS_OFFSET_P1];
-  uint8_t p2 = buf[HNS_OFFSET_P2];
-  uint8_t lc = buf[HNS_OFFSET_LC];
-  uint8_t * cdata = buf + HNS_OFFSET_CDATA;
-
-  switch(p1) {
-    case 0x00:
-      break;
-
-    case 0x01: {
-      if (!ledger_pin_validated())
-        THROW(HNS_EX_SECURITY_STATUS_NOT_SATISFIED);
-
-      memset(&tx, 0, sizeof(tx));
-      read_u32(&cdata, &lc, &tx.ver, true);
-      read_u32(&cdata, &lc, &tx.locktime, true);
-      read_varint(&cdata, &lc, &tx.ins_len);
-      read_varint(&cdata, &lc, &tx.outs_len);
-
-      if (cdata - lc != buf + HNS_OFFSET_CDATA)
-        THROW(HNS_EX_INCORRECT_LENGTH);
-
-      return 0;
-    }
-
-    default:
-      THROW(HNS_EX_INCORRECT_P1_P2);
-      break;
-  };
-
-  switch(p2) {
-    case 0x00:
-      tx_parse(&tx, cdata, &lc);
-      break;
-
-    case 0x01:
-      tx_sign(&tx, cdata, &lc);
-      break;
-
-    default:
-      THROW(HNS_EX_INCORRECT_P1_P2);
-      break;
-  }
-
-  return 0;
 }

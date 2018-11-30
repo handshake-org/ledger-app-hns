@@ -13,7 +13,6 @@ ledger_bip32_node_s {
   uint8_t prv[32];
   uint8_t pub[33];
   uint8_t code[32];
-  uint8_t addr[42];
 } ledger_bip32_node_t;
 
 extern uint16_t g_ledger_ui_step;
@@ -29,12 +28,7 @@ void
 ledger_ui_idle(void);
 
 void
-ledger_bip32_node_derive(
-  ledger_bip32_node_t *,
-  uint32_t *,
-  uint8_t,
-  char *
-);
+ledger_bip32_node_derive(ledger_bip32_node_t *, uint32_t *, uint8_t);
 
 static inline void
 ledger_boot(void) {

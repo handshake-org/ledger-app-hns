@@ -3,7 +3,6 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-#include "utils.h"
 
 #define HNS_APDU_COUNT 2
 #define HNS_OFFSET_CLA 0x00
