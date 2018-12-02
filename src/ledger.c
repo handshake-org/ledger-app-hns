@@ -39,6 +39,26 @@ ledger_bip32_node_derive(
   n->pub[0] = public.W[64] & 1 ? 0x03 : 0x02;
   n->path = path;
   n->depth = depth;
+  n->private = private;
+  n->public = public;
+}
+
+void
+ledger_ecdsa_sign(
+  cx_ecfp_private_key_t priv,
+  uint8_t * hash,
+  size_t hash_len,
+  uint8_t * sig,
+  size_t sig_len
+) {
+  unsigned int info = 0;
+
+  cx_ecdsa_sign(&priv, CX_LAST | CX_RND_TRNG, CX_SHA256,
+    hash, hash_len, sig, &info);
+
+  if (info & CX_ECCINFO_PARITY_ODD) {
+    sig[0] |= 0x01;
+  }
 }
 
 /**

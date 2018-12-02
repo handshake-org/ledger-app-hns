@@ -13,6 +13,8 @@ ledger_bip32_node_s {
   uint8_t prv[32];
   uint8_t pub[33];
   uint8_t code[32];
+  cx_ecfp_private_key_t private;
+  cx_ecfp_public_key_t public;
 } ledger_bip32_node_t;
 
 extern uint16_t g_ledger_ui_step;
@@ -29,6 +31,9 @@ ledger_ui_idle(void);
 
 void
 ledger_bip32_node_derive(ledger_bip32_node_t *, uint32_t *, uint8_t);
+
+void
+ledger_ecdsa_sign(cx_ecfp_private_key_t, uint8_t *, size_t, uint8_t *, size_t);
 
 static inline void
 ledger_boot(void) {

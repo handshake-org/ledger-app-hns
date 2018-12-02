@@ -45,6 +45,8 @@ hns_loop() {
           case 0x40:
             len = hns_apdu_get_wallet_public_key(buf, &flags);
             break;
+          case 0x42:
+            len = hns_apdu_tx_sign(buf, &flags);
           default:
             sw = HNS_SW_INS_NOT_SUPPORTED;
             break;
