@@ -100,7 +100,7 @@ hns_apdu_get_wallet_public_key(
   addr_create_p2pkh(hrp, n.pub.W, addr);
 
   uint8_t len = 0;
-  len += write_varbytes(&buf, n.pub.W, sizeof(n.pub.W));
+  len += write_varbytes(&buf, n.pub.W, 33);
   len += write_varbytes(&buf, addr, sizeof(addr));
   len += write_bytes(&buf, n.code, sizeof(n.code));
 
