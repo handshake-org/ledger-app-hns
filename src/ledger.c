@@ -30,17 +30,13 @@ ledger_bip32_node_derive(
   uint32_t * path,
   uint8_t depth
 ) {
-  cx_ecfp_private_key_t private;
-  cx_ecfp_public_key_t public;
-  os_perso_derive_node_bip32(CX_CURVE_256K1, path, depth, n->prv, n->code);
-  cx_ecdsa_init_private_key(CX_CURVE_256K1, n->prv, 32, &private);
-  cx_ecfp_generate_pair(CX_CURVE_256K1, &public, &private, true);
-  os_memmove(n->pub, public.W, sizeof(n->pub));
-  n->pub[0] = public.W[64] & 1 ? 0x03 : 0x02;
+  uint8_t prv[32];
+  os_perso_derive_node_bip32(CX_CURVE_256K1, path, depth, prv, n->code);
+  cx_ecdsa_init_private_key(CX_CURVE_256K1, prv, 32, &n->prv);
+  cx_ecfp_generate_pair(CX_CURVE_256K1, &n->pub, &n->prv, true);
+  n->pub.W[0] = n->pub.W[64] & 1 ? 0x03 : 0x02;
   n->path = path;
   n->depth = depth;
-  n->private = private;
-  n->public = public;
 }
 
 void

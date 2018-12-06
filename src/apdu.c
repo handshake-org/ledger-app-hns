@@ -97,10 +97,10 @@ hns_apdu_get_wallet_public_key(
   uint8_t addr[42];
   ledger_bip32_node_t n;
   ledger_bip32_node_derive(&n, path, depth);
-  addr_create_p2pkh(hrp, n.pub, &addr);
+  addr_create_p2pkh(hrp, n.pub.W, addr);
 
   uint8_t len = 0;
-  len += write_varbytes(&buf, n.pub, sizeof(n.pub));
+  len += write_varbytes(&buf, n.pub.W, sizeof(n.pub.W));
   len += write_varbytes(&buf, addr, sizeof(addr));
   len += write_bytes(&buf, n.code, sizeof(n.code));
 
@@ -417,7 +417,7 @@ tx_sign(
 
   blake2b(sig, sizeof(sig), NULL, 0, tx_raw, sizeof(tx_raw));
   ledger_bip32_node_derive(&n, path, depth);
-  ledger_ecdsa_sign(n.private, tx_hash, sizeof(tx_hash), sig, sizeof(sig));
+  ledger_ecdsa_sign(n.prv, tx_hash, sizeof(tx_hash), sig, sizeof(sig));
 
   write_len = write_bytes(&out, sig, sizeof(sig));
 

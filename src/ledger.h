@@ -10,11 +10,9 @@ typedef struct
 ledger_bip32_node_s {
   uint32_t * path;
   uint8_t depth;
-  uint8_t prv[32];
-  uint8_t pub[33];
+  cx_ecfp_private_key_t prv;
+  cx_ecfp_public_key_t pub;
   uint8_t code[32];
-  cx_ecfp_private_key_t private;
-  cx_ecfp_public_key_t public;
 } ledger_bip32_node_t;
 
 extern uint16_t g_ledger_ui_step;
