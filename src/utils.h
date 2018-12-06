@@ -11,10 +11,10 @@
 #define HNS_MAX_PATH 10
 #define HNS_MAX_PATH_LEN 4 * HNS_MAX_PATH + 1
 
-// TODO(boymanjor): consider dynamic allocation or different limits
-#define HNS_MAX_INPUTS 50
-#define HNS_MAX_OUTPUTS 50
-#define HNS_MAX_SCRIPT 10000
+// TODO(boymanjor): consider different limits
+#define HNS_MAX_INPUTS 9
+#define HNS_MAX_OUTPUTS 9
+#define HNS_MAX_SCRIPT 25
 
 typedef uint64_t hns_varint_t;
 
