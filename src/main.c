@@ -39,13 +39,13 @@ hns_loop() {
         }
 
         switch(ins) {
-          case 0xC4:
+          case 0x40:
             len = hns_apdu_get_firmware_version(buf, &flags);
             break;
-          case 0x40:
+          case 0x42:
             len = hns_apdu_get_wallet_public_key(buf, &flags);
             break;
-          case 0x42:
+          case 0x44:
             len = hns_apdu_tx_sign(buf, &flags);
           default:
             sw = HNS_SW_INS_NOT_SUPPORTED;

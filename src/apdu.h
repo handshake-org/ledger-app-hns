@@ -4,7 +4,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define HNS_APDU_COUNT 2
 #define HNS_OFFSET_CLA 0x00
 #define HNS_OFFSET_INS 0x01
 #define HNS_OFFSET_P1 0x02
