@@ -304,13 +304,18 @@ tx_sign(
   uint8_t * len,
   uint8_t * out
 ) {
+  uint32_t path[HNS_MAX_PATH];
+  uint8_t depth;
   uint8_t index;
-  uint32_t type;
+  uint8_t type;
+
+  if (!read_bip32_path(&buf, len, &depth, path))
+    THROW(INVALID_PARAMETER);
 
   if (!read_u8(&buf, len, &index))
     THROW(INVALID_PARAMETER);
 
-  if (!read_u32(&buf, len, &type, false))
+  if (!read_u8(&buf, len, &type))
     THROW(INVALID_PARAMETER);
 
   hns_input_t in;
@@ -394,8 +399,6 @@ tx_sign(
   uint8_t * tx_raw[156 + in.script_len];
   uint8_t tx_hash[32];
   uint8_t sig[65];
-  uint8_t depth;
-  uint32_t path[HNS_MAX_PATH];
   ledger_bip32_node_t n;
 
   write_len += write_u8(tx_raw, tx->ver);
@@ -414,10 +417,6 @@ tx_sign(
     THROW(EXCEPTION);
 
   blake2b(sig, sizeof(sig), NULL, 0, tx_raw, sizeof(tx_raw));
-
-  if (!read_bip32_path(&buf, len, &depth, path))
-    THROW(INVALID_PARAMETER);
-
   ledger_bip32_node_derive(&n, path, depth);
   ledger_ecdsa_sign(n.private, tx_hash, sizeof(tx_hash), sig, sizeof(sig));
 
