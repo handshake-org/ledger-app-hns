@@ -136,7 +136,7 @@ hns_apdu_tx_sign(volatile uint8_t * buf, volatile uint8_t * flags) {
       if (cdata - lc != buf + HNS_OFFSET_CDATA)
         THROW(HNS_EX_INCORRECT_LENGTH);
 
-      return 0;
+      break;
     }
 
     default:
