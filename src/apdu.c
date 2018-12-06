@@ -150,8 +150,7 @@ hns_apdu_tx_sign(volatile uint8_t * buf, volatile uint8_t * flags) {
       break;
 
     case 0x01: {
-      uint8_t sig[65];
-      tx_sign(&tx, cdata, &lc, sig);
+      tx_sign(&tx, cdata, &lc, buf);
       break;
     }
 
