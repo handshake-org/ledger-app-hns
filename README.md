@@ -16,6 +16,12 @@ project. The Nebulous Inc. developers have done a wonderful job of documenting
 both the high-level architecture and low-level implementation details of
 Nano S app development.
 
+## Docker Build
+
+Run `make docker` to compile the application in a Docker container.
+The Dockerfile is heavily inspired by
+<https://github.com/mkrufky/ledger-app-eth-dockerized>.
+
 ## APDU Command Specification
 
 This application interacts with a computer host through the APDU communication
