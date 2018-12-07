@@ -55,9 +55,23 @@ DEFINES   += U2F_REQUEST_TIMEOUT=10000 # 10 seconds
 DEFINES   += UNUSED\(x\)=\(void\)x
 DEFINES   += APPVERSION=\"$(APPVERSION)\"
 
-############
+##############
 # Compiler #
-############
+##############
+ifneq ($(BOLOS_ENV),)
+$(info BOLOS_ENV=$(BOLOS_ENV))
+CLANGPATH := $(BOLOS_ENV)/clang-arm-fropi/bin/
+GCCPATH := $(BOLOS_ENV)/gcc-arm-none-eabi-5_3-2016q1/bin/
+else
+$(info BOLOS_ENV is not set: falling back to CLANGPATH and GCCPATH)
+endif
+ifeq ($(CLANGPATH),)
+$(info CLANGPATH is not set: clang will be used from PATH)
+endif
+ifeq ($(GCCPATH),)
+$(info GCCPATH is not set: arm-none-eabi-* will be used from PATH)
+endif
+
 CC       := $(CLANGPATH)clang
 
 CFLAGS   += -O3 -Os -Wno-typedef-redefinition
@@ -74,9 +88,7 @@ include $(BOLOS_SDK)/Makefile.glyphs
 ### variables processed by the common makefile.rules
 ### of the SDK to grab source files and include dirs
 APP_SOURCE_PATH  += src vendor/blake2 vendor/bech32
-SDK_SOURCE_PATH  += lib_stusb
-SDK_SOURCE_PATH  += lib_stusb_impl
-SDK_SOURCE_PATH  += lib_u2f
+SDK_SOURCE_PATH  += lib_stusb lib_stusb_impl lib_u2f qrcode
 
 load: all
 	python -m ledgerblue.loadApp $(APP_LOAD_PARAMS)
@@ -84,9 +96,25 @@ load: all
 delete:
 	python -m ledgerblue.deleteApp $(COMMON_DELETE_PARAMS)
 
+# don't run additional goals on docker build
+MAKECMDGOALS := docker load-docker
+
 # import generic rules from the sdk
 include $(BOLOS_SDK)/Makefile.rules
 
 # add dependency on custom makefile filename
 dep/%.d: %.c Makefile
 
+# build binaries using Docker
+docker:
+	docker build --build-arg CACHE_BUST='$(shell date)' -f Dockerfile.build -t ledger-app-hns-build .
+	docker run --name ledger-app-hns-build ledger-app-hns-build
+	docker cp ledger-app-hns-build:/ledger-app-hns/bin/app.elf ./bin
+	docker cp ledger-app-hns-build:/ledger-app-hns/bin/app.hex ./bin
+	docker cp ledger-app-hns-build:/ledger-app-hns/debug/app.map ./debug
+	docker cp ledger-app-hns-build:/ledger-app-hns/debug/app.asm ./debug
+	docker rm ledger-app-hns-build
+	docker rmi ledger-app-hns-build
+
+load-docker: docker
+	python3 -m ledgerblue.loadApp $(APP_LOAD_PARAMS)

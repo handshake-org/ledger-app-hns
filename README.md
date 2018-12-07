@@ -2,6 +2,9 @@
 
 This application runs on the Ledger Nano S and Blue personal security devices.
 
+## Docker Build
+
+Run `make docker` to compile the application in a Docker container. The Dockerfile is heavily inspired by [https://github.com/mkrufky/ledger-app-eth-dockerized](https://github.com/mkrufky/ledger-app-eth-dockerized).
 
 ## Contribution and License Agreement
 
