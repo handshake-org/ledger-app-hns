@@ -41,20 +41,19 @@ ledger_bip32_node_derive(
 
 void
 ledger_ecdsa_sign(
-  cx_ecfp_private_key_t priv,
+  cx_ecfp_private_key_t * priv,
   uint8_t * hash,
   size_t hash_len,
-  uint8_t * sig,
-  size_t sig_len
+  uint8_t * sig
 ) {
   unsigned int info = 0;
 
-  cx_ecdsa_sign(&priv, CX_LAST | CX_RND_TRNG, CX_SHA256,
+  cx_ecdsa_sign(priv, CX_LAST | CX_RND_TRNG, CX_SHA256,
     hash, hash_len, sig, &info);
 
-  if (info & CX_ECCINFO_PARITY_ODD) {
-    sig[0] |= 0x01;
-  }
+  // if (info & CX_ECCINFO_PARITY_ODD) {
+  //   sig[0] |= 0x01;
+  // }
 }
 
 /**

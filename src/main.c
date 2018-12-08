@@ -1,5 +1,8 @@
 #include "apdu.h"
 #include "ledger.h"
+#include "utils.h"
+
+global_ctx_t global;
 
 static void
 hns_boot(void) {
@@ -9,6 +12,7 @@ hns_boot(void) {
 
 static void
 hns_loop() {
+  global.tx.init = false;
   volatile uint8_t * buf = ledger_init();
   volatile uint8_t len = 0;
   volatile uint8_t flags = 0;
@@ -19,14 +23,18 @@ hns_loop() {
     len = ledger_apdu_exchange(flags, len);
 
     if(halted)
-      ledger_reset();
+      break;
 
     BEGIN_TRY {
       TRY {
+        sw  = HNS_SW_OK;
+        uint8_t p1 = buf[HNS_OFFSET_P1];
+        uint8_t p2 = buf[HNS_OFFSET_P2];
         uint8_t cla = buf[HNS_OFFSET_CLA];
         uint8_t ins = buf[HNS_OFFSET_INS];
         uint8_t lc  = buf[HNS_OFFSET_LC];
-        sw  = HNS_SW_OK;
+        volatile uint8_t * in = buf + HNS_OFFSET_CDATA;
+        volatile uint8_t * out = buf;
 
         if (cla != 0xE0) {
           sw = HNS_SW_CLA_NOT_SUPPORTED;
@@ -40,34 +48,25 @@ hns_loop() {
 
         switch(ins) {
           case 0x40:
-            len = hns_apdu_get_firmware_version(buf, &flags);
+            len = hns_apdu_get_firmware_version(p1, p2, lc, in, &flags);
             break;
           case 0x42:
-            len = hns_apdu_get_wallet_public_key(buf, &flags);
+            len = hns_apdu_get_wallet_public_key(p1, p2, lc, in, out, &flags);
             break;
           case 0x44:
-            len = hns_apdu_tx_sign(buf, &flags);
+            len = hns_apdu_tx_sign(p1, p2, lc, in, out, &flags);
+            break;
           default:
             sw = HNS_SW_INS_NOT_SUPPORTED;
             break;
         }
 
       send_sw:
-        buf[len] = sw >> 8;
-        buf[len] = sw & 0xff;
-        len += 2;
+        buf[len++] = sw >> 8;
+        buf[len++] = sw & 0xff;
       }
       CATCH(EXCEPTION_IO_RESET) {
         THROW(EXCEPTION_IO_RESET);
-      }
-      CATCH(HNS_EX_INCORRECT_P1_P2) {
-        sw = HNS_SW_INCORRECT_P1_P2;
-      }
-      CATCH(HNS_EX_INCORRECT_LENGTH) {
-        sw = HNS_SW_INCORRECT_LENGTH;
-      }
-      CATCH(HNS_EX_SECURITY_STATUS_NOT_SATISFIED) {
-        sw = HNS_SW_SECURITY_STATUS_NOT_SATISFIED;
       }
       CATCH_OTHER(e) {
         halted = 1;

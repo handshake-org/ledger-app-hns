@@ -31,7 +31,7 @@ void
 ledger_bip32_node_derive(ledger_bip32_node_t *, uint32_t *, uint8_t);
 
 void
-ledger_ecdsa_sign(cx_ecfp_private_key_t, uint8_t *, size_t, uint8_t *, size_t);
+ledger_ecdsa_sign(cx_ecfp_private_key_t *, uint8_t *, size_t, uint8_t *);
 
 static inline void
 ledger_boot(void) {
