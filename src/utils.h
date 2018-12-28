@@ -25,6 +25,7 @@ typedef struct hns_input_s {
   hns_varint_t script_len;
 } hns_input_t;
 
+// TODO: handle more addr & covenant data
 typedef struct hns_output_s {
   uint8_t val[8];
   uint8_t addr_data[24];
