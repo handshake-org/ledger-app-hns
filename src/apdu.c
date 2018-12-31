@@ -11,10 +11,10 @@ static hns_transaction_t * gtx = &global.tx;
 static inline void
 addr_create_p2pkh(char *, uint8_t *, uint8_t *);
 
-static uint8_t
+static inline uint8_t
 tx_parse(uint8_t *, volatile uint8_t *);
 
-static uint8_t
+static inline uint8_t
 tx_sign(uint8_t *, volatile uint8_t *, volatile uint8_t *);
 
 volatile uint8_t
@@ -169,7 +169,7 @@ addr_create_p2pkh(char * hrp, uint8_t * pub, uint8_t * addr) {
     THROW(EXCEPTION);
 }
 
-static uint8_t
+static inline uint8_t
 tx_parse(
   uint8_t * len,
   volatile uint8_t * buf
@@ -302,7 +302,7 @@ tx_parse(
   return *len;
 };
 
-static uint8_t
+static inline uint8_t
 tx_sign(
   uint8_t * len,
   volatile uint8_t * buf,
