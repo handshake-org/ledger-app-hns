@@ -55,7 +55,7 @@ typedef struct hns_transaction_s {
 } hns_transaction_t;
 
 typedef union {
-	hns_transaction_t tx;
+  hns_transaction_t tx;
 } global_ctx_t;
 
 extern global_ctx_t global;
