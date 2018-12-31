@@ -85,9 +85,8 @@ hns_apdu_get_wallet_public_key(
   if (!ledger_pin_validated())
     THROW(HNS_SW_SECURITY_STATUS_NOT_SATISFIED);
 
-  // TODO: use descriptive exception
   if (!read_bip32_path(&buf, &len, &depth, path))
-    THROW(INVALID_PARAMETER);
+    THROW(HNS_EX_CANNOT_READ_BIP32_PATH);
 
   ledger_bip32_node_derive(&n, path, depth);
   addr_create_p2pkh(hrp, n.pub.W, addr);
@@ -96,9 +95,8 @@ hns_apdu_get_wallet_public_key(
   len += write_varbytes(&out, addr, sizeof(addr));
   len += write_bytes(&out, n.code, sizeof(n.code));
 
-  // TODO: better io exception
   if (len != 109)
-    THROW(EXCEPTION);
+    THROW(HNS_EX_INCORRECT_WRITE_LEN);
 
   return len;
 }
@@ -120,9 +118,9 @@ hns_apdu_tx_sign(
       if (!ledger_pin_validated())
         THROW(HNS_EX_SECURITY_STATUS_NOT_SATISFIED);
 
-      // TODO: throw better exception
+      // TODO: handle init member
       if (gtx->init)
-        THROW(EXCEPTION);
+        THROW(HNS_EX_INVALID_PARSER_STATE);
 
       gtx->in_pos = 0;
       gtx->out_pos = 0;
@@ -178,7 +176,7 @@ tx_parse(
   hns_output_t * out = NULL;
 
   if (gtx->parse_pos < 0 || gtx->parse_pos > 7)
-    THROW(INVALID_PARAMETER);
+    THROW(HNS_EX_INVALID_PARSER_STATE);
 
   if (gtx->in_pos < gtx->ins_len)
     in = &gtx->ins[gtx->in_pos];
@@ -186,9 +184,8 @@ tx_parse(
   if (gtx->out_pos < gtx->outs_len)
     out = &gtx->outs[gtx->out_pos];
 
-  // TODO(boymanjor): THROW(INVALID_PARSER_STATE)
   if (in == NULL && out == NULL)
-    THROW(INVALID_PARAMETER);
+    THROW(HNS_EX_INVALID_PARSER_STATE);
 
   if (gtx->store_len == 0) {
     memcpy(gtx->store, buf, *len);
@@ -291,9 +288,8 @@ tx_parse(
     if (*len > 0)
       memcpy(gtx->store, buf, *len);
 
-    // TODO: THROW(INVALID_PARSER_STATE)
     if (*len < 0)
-      THROW(EXCEPTION);
+      THROW(HNS_EX_INVALID_PARSER_STATE);
 
     gtx->store_len = *len;
     break;
