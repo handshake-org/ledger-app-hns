@@ -2,6 +2,11 @@
 #include "ledger.h"
 #include "utils.h"
 
+#define CLA_GENERAL 0xe0
+#define INS_FIRMWARE 0x40
+#define INS_PUBKEY 0x42
+#define INS_SIGN 0x44
+
 global_ctx_t global;
 
 static void
@@ -36,7 +41,7 @@ hns_loop() {
         volatile uint8_t * in = buf + HNS_OFFSET_CDATA;
         volatile uint8_t * out = buf;
 
-        if (cla != 0xE0) {
+        if (cla != CLA_GENERAL) {
           sw = HNS_SW_CLA_NOT_SUPPORTED;
           goto send_sw;
         }
@@ -47,13 +52,13 @@ hns_loop() {
         }
 
         switch(ins) {
-          case 0x40:
+          case INS_FIRMWARE:
             len = hns_apdu_get_firmware_version(p1, p2, lc, in, &flags);
             break;
-          case 0x42:
+          case INS_PUBKEY:
             len = hns_apdu_get_wallet_public_key(p1, p2, lc, in, out, &flags);
             break;
-          case 0x44:
+          case INS_SIGN:
             len = hns_apdu_tx_sign(p1, p2, lc, in, out, &flags);
             break;
           default:
