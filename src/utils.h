@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
+#include "apdu.h"
 #include "ledger.h"
 
 #define HNS_APP_NAME "Handshake"
@@ -67,10 +68,7 @@ size_varint(hns_varint_t val) {
   if (val <= 0xffff)
     return 3;
 
-  if (val <= 0xffffffff)
-    return 5;
-
-  return 9;
+  return 5;
 }
 
 static inline size_t
@@ -138,8 +136,7 @@ read_varint(uint8_t ** buf, uint8_t * len, hns_varint_t * varint) {
 
   switch (prefix) {
     case 0xff: {
-      // TODO: more descriptive
-      THROW(EXCEPTION);
+      THROW(HNS_EX_U64_NOT_SUPPORTED);
       break;
     }
 
@@ -236,8 +233,6 @@ read_varbytes(
 ) {
   size_t sz;
   size_t offset;
-
-  // TODO: handle buf rewind
 
   if (!read_varsize(buf, len, &sz))
     return false;

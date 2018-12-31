@@ -11,6 +11,8 @@
 #define HNS_OFFSET_LC 0x04
 #define HNS_OFFSET_CDATA 0x05
 
+// TODO: define canonical sw list and
+// handle its administration accordingly.
 #define HNS_SW_OK 0x9000
 #define HNS_SW_INCORRECT_P1_P2 0x6B00
 #define HNS_SW_INCORRECT_LENGTH 0x6700
@@ -22,6 +24,7 @@
 #define HNS_EX_INCORRECT_P1_P2 19
 #define HNS_EX_INCORRECT_LENGTH 20
 #define HNS_EX_SECURITY_STATUS_NOT_SATISFIED 21
+#define HNS_EX_U64_NOT_SUPPORTED 22
 
 volatile uint8_t
 hns_apdu_get_firmware_version(
