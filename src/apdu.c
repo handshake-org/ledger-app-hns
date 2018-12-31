@@ -188,9 +188,9 @@ tx_parse(
     THROW(HNS_EX_INVALID_PARSER_STATE);
 
   if (gtx->store_len == 0) {
-    memcpy(gtx->store, buf, *len);
+    memmove(gtx->store, buf, *len);
   } else {
-    memcpy(gtx->store + gtx->store_len, buf, *len);
+    memmove(gtx->store + gtx->store_len, buf, *len);
     *len += gtx->store_len;
   }
 
