@@ -6,7 +6,7 @@
 #include "segwit-addr.h"
 #include "utils.h"
 
-static hns_transaction_t * tx = &global.tx;
+static hns_transaction_t * gtx = &global.tx;
 
 static inline void
 addr_create_p2pkh(char *, uint8_t *, uint8_t *);
@@ -121,18 +121,18 @@ hns_apdu_tx_sign(
         THROW(HNS_EX_SECURITY_STATUS_NOT_SATISFIED);
 
       // TODO: throw better exception
-      if (tx->init)
+      if (gtx->init)
         THROW(EXCEPTION);
 
-      tx->in_pos = 0;
-      tx->out_pos = 0;
-      tx->parse_pos = 0;
-      tx->store_len = 0;
+      gtx->in_pos = 0;
+      gtx->out_pos = 0;
+      gtx->parse_pos = 0;
+      gtx->store_len = 0;
 
-      read_bytes(&in, &len, tx->ver, sizeof(tx->ver));
-      read_bytes(&in, &len, tx->locktime, sizeof(tx->locktime));
-      read_u8(&in, &len, &tx->ins_len);
-      read_u8(&in, &len, &tx->outs_len);
+      read_bytes(&in, &len, gtx->ver, sizeof(gtx->ver));
+      read_bytes(&in, &len, gtx->locktime, sizeof(gtx->locktime));
+      read_u8(&in, &len, &gtx->ins_len);
+      read_u8(&in, &len, &gtx->outs_len);
       break;
     }
 
@@ -177,69 +177,69 @@ tx_parse(
   hns_input_t * in = NULL;
   hns_output_t * out = NULL;
 
-  if (tx->parse_pos < 0 || tx->parse_pos > 7)
+  if (gtx->parse_pos < 0 || gtx->parse_pos > 7)
     THROW(INVALID_PARAMETER);
 
-  if (tx->in_pos < tx->ins_len)
-    in = &tx->ins[tx->in_pos];
+  if (gtx->in_pos < gtx->ins_len)
+    in = &gtx->ins[gtx->in_pos];
 
-  if (tx->out_pos < tx->outs_len)
-    out = &tx->outs[tx->out_pos];
+  if (gtx->out_pos < gtx->outs_len)
+    out = &gtx->outs[gtx->out_pos];
 
   // TODO(boymanjor): THROW(INVALID_PARSER_STATE)
   if (in == NULL && out == NULL)
     THROW(INVALID_PARAMETER);
 
-  if (tx->store_len == 0) {
-    memcpy(tx->store, buf, *len);
+  if (gtx->store_len == 0) {
+    memcpy(gtx->store, buf, *len);
   } else {
-    memcpy(tx->store + tx->store_len, buf, *len);
-    *len += tx->store_len;
+    memcpy(gtx->store + gtx->store_len, buf, *len);
+    *len += gtx->store_len;
   }
 
-  buf = tx->store;
+  buf = gtx->store;
 
   for (;;) {
     bool should_continue = false;
 
-    switch(tx->parse_pos) {
+    switch(gtx->parse_pos) {
       case 0: {
         if (!read_bytes(&buf, len, &in->prevout, sizeof(in->prevout))) {
-          tx->parse_pos = 0;
+          gtx->parse_pos = 0;
           break;
         }
       }
 
       case 1: {
         if (!read_bytes(&buf, len, &in->val, sizeof(in->val))) {
-          tx->parse_pos = 1;
+          gtx->parse_pos = 1;
           break;
         }
       }
 
       case 2: {
         if (!read_bytes(&buf, len, &in->seq, sizeof(in->seq))) {
-          tx->parse_pos = 2;
+          gtx->parse_pos = 2;
           break;
         }
       }
 
       case 3: {
         if (!read_varint(&buf, len, &in->script_len)) {
-          tx->parse_pos = 3;
+          gtx->parse_pos = 3;
           break;
         }
       }
 
       case 4: {
         if (!read_bytes(&buf, len, in->script, in->script_len)) {
-          tx->parse_pos = 4;
+          gtx->parse_pos = 4;
           break;
         }
 
-        if (++tx->in_pos < tx->ins_len) {
-          in = &tx->ins[tx->in_pos];
-          tx->parse_pos = 0;
+        if (++gtx->in_pos < gtx->ins_len) {
+          in = &gtx->ins[gtx->in_pos];
+          gtx->parse_pos = 0;
           should_continue = true;
           break;
         }
@@ -247,7 +247,7 @@ tx_parse(
 
       case 5: {
         if (!read_bytes(&buf, len, &out->val, sizeof(out->val))) {
-          tx->parse_pos = 5;
+          gtx->parse_pos = 5;
           break;
         }
       }
@@ -258,7 +258,7 @@ tx_parse(
         uint8_t data_sz = sizeof(out->addr_data);
 
         if (!read_varbytes(&buf, len, data, data_sz, data_len)) {
-          tx->parse_pos = 6;
+          gtx->parse_pos = 6;
           break;
         }
       }
@@ -269,18 +269,18 @@ tx_parse(
         uint8_t data_sz = sizeof(out->covenant_data);
 
         if (!read_varbytes(&buf, len, data, data_sz, data_len)) {
-          tx->parse_pos = 7;
+          gtx->parse_pos = 7;
           break;
         }
 
-        if (++tx->out_pos < tx->outs_len) {
-          out = &tx->outs[tx->out_pos];
-          tx->parse_pos = 5;
+        if (++gtx->out_pos < gtx->outs_len) {
+          out = &gtx->outs[gtx->out_pos];
+          gtx->parse_pos = 5;
           should_continue = true;
           break;
         }
 
-        tx->parse_pos = 8;
+        gtx->parse_pos = 8;
         break;
       }
     }
@@ -289,13 +289,13 @@ tx_parse(
       continue;
 
     if (*len > 0)
-      memcpy(tx->store, buf, *len);
+      memcpy(gtx->store, buf, *len);
 
     // TODO: THROW(INVALID_PARSER_STATE)
     if (*len < 0)
       THROW(EXCEPTION);
 
-    tx->store_len = *len;
+    gtx->store_len = *len;
     break;
   }
 
@@ -324,47 +324,47 @@ tx_sign(
   if (!read_bytes(&buf, len, type, sizeof(type)))
     THROW(INVALID_PARAMETER);
 
-  hns_input_t in = tx->ins[index];
+  hns_input_t in = gtx->ins[index];
   blake2b_init(&ctx, 32, NULL, 0);
   int i = 0;
 
-  for (i = 0; i < tx->ins_len; i++)
-    blake2b_update(&ctx, tx->ins[i].prevout, sizeof(tx->ins[i].prevout));
+  for (i = 0; i < gtx->ins_len; i++)
+    blake2b_update(&ctx, gtx->ins[i].prevout, sizeof(gtx->ins[i].prevout));
 
-  blake2b_final(&ctx, tx->p_hash);
+  blake2b_final(&ctx, gtx->p_hash);
   blake2b_init(&ctx, 32, NULL, 0);
 
-  for (i = 0; i < tx->ins_len; i++)
-    blake2b_update(&ctx, tx->ins[i].seq, sizeof(tx->ins[i].seq));
+  for (i = 0; i < gtx->ins_len; i++)
+    blake2b_update(&ctx, gtx->ins[i].seq, sizeof(gtx->ins[i].seq));
 
-  blake2b_final(&ctx, tx->s_hash);
+  blake2b_final(&ctx, gtx->s_hash);
   blake2b_init(&ctx, 32, NULL, 0);
 
-  for (i = 0; i < tx->outs_len; i++) {
-    hns_output_t o = tx->outs[i];
+  for (i = 0; i < gtx->outs_len; i++) {
+    hns_output_t o = gtx->outs[i];
     blake2b_update(&ctx, o.val, sizeof(o.val));
     blake2b_update(&ctx, o.addr_data, o.addr_len);
     blake2b_update(&ctx, o.covenant_data, o.covenant_len);
   }
 
-  blake2b_final(&ctx, tx->o_hash);
+  blake2b_final(&ctx, gtx->o_hash);
 
   blake2b_init(&ctx, 32, NULL, 0);
-  blake2b_update(&ctx, tx->ver, sizeof(tx->ver));
-  blake2b_update(&ctx, tx->p_hash, sizeof(tx->p_hash));
-  blake2b_update(&ctx, tx->s_hash, sizeof(tx->s_hash));
+  blake2b_update(&ctx, gtx->ver, sizeof(gtx->ver));
+  blake2b_update(&ctx, gtx->p_hash, sizeof(gtx->p_hash));
+  blake2b_update(&ctx, gtx->s_hash, sizeof(gtx->s_hash));
   blake2b_update(&ctx, in.prevout, sizeof(in.prevout));
   blake2b_update(&ctx, &in.script_len, 1);
   blake2b_update(&ctx, in.script, in.script_len);
   blake2b_update(&ctx, in.val, sizeof(in.val));
   blake2b_update(&ctx, in.seq, sizeof(in.seq));
-  blake2b_update(&ctx, tx->o_hash, sizeof(tx->o_hash));
-  blake2b_update(&ctx, tx->locktime, sizeof(tx->locktime));
+  blake2b_update(&ctx, gtx->o_hash, sizeof(gtx->o_hash));
+  blake2b_update(&ctx, gtx->locktime, sizeof(gtx->locktime));
   blake2b_update(&ctx, type, sizeof(type));
-  blake2b_final(&ctx, tx->tx_hash);
+  blake2b_final(&ctx, gtx->tx_hash);
 
   ledger_bip32_node_derive(&n, path, depth);
-  ledger_ecdsa_sign(&n.prv, tx->tx_hash, sizeof(tx->tx_hash), sig);
+  ledger_ecdsa_sign(&n.prv, gtx->tx_hash, sizeof(gtx->tx_hash), sig);
 
   return sig[1] + 2;
 }
