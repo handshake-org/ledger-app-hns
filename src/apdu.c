@@ -278,29 +278,28 @@ tx_parse(
         }
 
         int i = 0;
-        blake2b_ctx ctx;
-        blake2b_init(&ctx, 32, NULL, 0);
+        blake2b_init(&gtx->blake, 32, NULL, 0);
 
         for (i = 0; i < gtx->ins_len; i++)
-          blake2b_update(&ctx, gtx->ins[i].prevout, sizeof(gtx->ins[i].prevout));
+          blake2b_update(&gtx->blake, gtx->ins[i].prevout, sizeof(gtx->ins[i].prevout));
 
-        blake2b_final(&ctx, gtx->p_hash);
-        blake2b_init(&ctx, 32, NULL, 0);
+        blake2b_final(&gtx->blake, gtx->p_hash);
+        blake2b_init(&gtx->blake, 32, NULL, 0);
 
         for (i = 0; i < gtx->ins_len; i++)
-          blake2b_update(&ctx, gtx->ins[i].seq, sizeof(gtx->ins[i].seq));
+          blake2b_update(&gtx->blake, gtx->ins[i].seq, sizeof(gtx->ins[i].seq));
 
-        blake2b_final(&ctx, gtx->s_hash);
-        blake2b_init(&ctx, 32, NULL, 0);
+        blake2b_final(&gtx->blake, gtx->s_hash);
+        blake2b_init(&gtx->blake, 32, NULL, 0);
 
         for (i = 0; i < gtx->outs_len; i++) {
           hns_output_t o = gtx->outs[i];
-          blake2b_update(&ctx, o.val, sizeof(o.val));
-          blake2b_update(&ctx, o.addr_data, o.addr_len);
-          blake2b_update(&ctx, o.covenant_data, o.covenant_len);
+          blake2b_update(&gtx->blake, o.val, sizeof(o.val));
+          blake2b_update(&gtx->blake, o.addr_data, o.addr_len);
+          blake2b_update(&gtx->blake, o.covenant_data, o.covenant_len);
         }
 
-        blake2b_final(&ctx, gtx->o_hash);
+        blake2b_final(&gtx->blake, gtx->o_hash);
         gtx->parse_pos = 8;
         break;
       }
@@ -332,7 +331,6 @@ tx_sign(
   uint8_t index;
   uint8_t depth;
   uint32_t path[HNS_MAX_PATH];
-  blake2b_ctx ctx;
   ledger_bip32_node_t n;
   hns_input_t in;
 
@@ -346,19 +344,19 @@ tx_sign(
     THROW(INVALID_PARAMETER);
 
   in = gtx->ins[index];
-  blake2b_init(&ctx, 32, NULL, 0);
-  blake2b_update(&ctx, gtx->ver, sizeof(gtx->ver));
-  blake2b_update(&ctx, gtx->p_hash, sizeof(gtx->p_hash));
-  blake2b_update(&ctx, gtx->s_hash, sizeof(gtx->s_hash));
-  blake2b_update(&ctx, in.prevout, sizeof(in.prevout));
-  blake2b_update(&ctx, &in.script_len, 1);
-  blake2b_update(&ctx, in.script, in.script_len);
-  blake2b_update(&ctx, in.val, sizeof(in.val));
-  blake2b_update(&ctx, in.seq, sizeof(in.seq));
-  blake2b_update(&ctx, gtx->o_hash, sizeof(gtx->o_hash));
-  blake2b_update(&ctx, gtx->locktime, sizeof(gtx->locktime));
-  blake2b_update(&ctx, type, sizeof(type));
-  blake2b_final(&ctx, gtx->tx_hash);
+  blake2b_init(&gtx->blake, 32, NULL, 0);
+  blake2b_update(&gtx->blake, gtx->ver, sizeof(gtx->ver));
+  blake2b_update(&gtx->blake, gtx->p_hash, sizeof(gtx->p_hash));
+  blake2b_update(&gtx->blake, gtx->s_hash, sizeof(gtx->s_hash));
+  blake2b_update(&gtx->blake, in.prevout, sizeof(in.prevout));
+  blake2b_update(&gtx->blake, &in.script_len, 1);
+  blake2b_update(&gtx->blake, in.script, in.script_len);
+  blake2b_update(&gtx->blake, in.val, sizeof(in.val));
+  blake2b_update(&gtx->blake, in.seq, sizeof(in.seq));
+  blake2b_update(&gtx->blake, gtx->o_hash, sizeof(gtx->o_hash));
+  blake2b_update(&gtx->blake, gtx->locktime, sizeof(gtx->locktime));
+  blake2b_update(&gtx->blake, type, sizeof(type));
+  blake2b_final(&gtx->blake, gtx->tx_hash);
   ledger_bip32_node_derive(&n, path, depth);
   ledger_ecdsa_sign(&n.prv, gtx->tx_hash, sizeof(gtx->tx_hash), sig);
 

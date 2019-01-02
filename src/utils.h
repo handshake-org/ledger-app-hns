@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <string.h>
 #include "apdu.h"
+#include "blake2b.h"
 #include "ledger.h"
 
 #define HNS_APP_NAME "Handshake"
@@ -37,6 +38,7 @@ typedef struct hns_output_s {
 
 typedef struct hns_transaction_s {
   bool init;
+  blake2b_ctx blake;
   uint8_t ins_len;
   uint8_t outs_len;
   uint8_t parse_pos;
