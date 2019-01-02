@@ -9,13 +9,13 @@
 
 global_ctx_t global;
 
-static void
+static inline void
 hns_boot(void) {
   asm volatile("cpsie i");
   ledger_boot();
 }
 
-static void
+static inline void
 hns_loop() {
   global.tx.init = false;
   volatile uint8_t * buf = ledger_init();
@@ -85,7 +85,7 @@ hns_loop() {
   }
 }
 
-static void
+static inline void
 hns_main(void) {
   BEGIN_TRY {
     for (;;) {
