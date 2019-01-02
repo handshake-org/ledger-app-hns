@@ -27,25 +27,15 @@ typedef struct hns_input_s {
   hns_varint_t script_len;
 } hns_input_t;
 
-// TODO: handle more addr & covenant data
-typedef struct hns_output_s {
-  uint8_t val[8];
-  uint8_t addr_data[24];
-  uint8_t covenant_data[20];
-  uint8_t addr_len;
-  hns_varint_t covenant_len;
-} hns_output_t;
-
 typedef struct hns_transaction_s {
   bool init;
   blake2b_ctx blake;
+  uint8_t parse_pos;
+  uint8_t ins_pos;
   uint8_t ins_len;
   uint8_t outs_len;
-  uint8_t parse_pos;
-  uint8_t in_pos;
-  uint8_t out_pos;
   uint8_t store_len;
-  uint8_t store[20];
+  uint8_t store[35]; // A byte less than the largest item parsed (prevout).
   uint8_t p_hash[32];
   uint8_t s_hash[32];
   uint8_t o_hash[32];
@@ -53,7 +43,7 @@ typedef struct hns_transaction_s {
   uint8_t ver[4];
   uint8_t locktime[4];
   hns_input_t ins[HNS_MAX_INPUTS];
-  hns_output_t outs[HNS_MAX_OUTPUTS];
+  hns_varint_t outs_sz;
 } hns_transaction_t;
 
 typedef union {

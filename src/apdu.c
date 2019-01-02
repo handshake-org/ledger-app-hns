@@ -122,15 +122,19 @@ hns_apdu_tx_sign(
       if (gtx->init)
         THROW(HNS_EX_INVALID_PARSER_STATE);
 
-      gtx->in_pos = 0;
-      gtx->out_pos = 0;
+      gtx->ins_pos = 0;
       gtx->parse_pos = 0;
       gtx->store_len = 0;
+      memset(gtx->p_hash, 0, 32);
+      memset(gtx->s_hash, 0, 32);
+      memset(gtx->o_hash, 0, 32);
+      memset(gtx->tx_hash, 0, 32);
 
       read_bytes(&in, &len, gtx->ver, sizeof(gtx->ver));
       read_bytes(&in, &len, gtx->locktime, sizeof(gtx->locktime));
       read_u8(&in, &len, &gtx->ins_len);
       read_u8(&in, &len, &gtx->outs_len);
+      read_varint(&in, &len, &gtx->outs_sz);
       break;
     }
 
@@ -173,28 +177,21 @@ tx_parse(
   volatile uint8_t * buf
 ) {
   hns_input_t * in = NULL;
-  hns_output_t * out = NULL;
 
-  if (gtx->parse_pos < 0 || gtx->parse_pos > 7)
+  if (gtx->parse_pos < 0 || gtx->parse_pos > 5)
     THROW(HNS_EX_INVALID_PARSER_STATE);
 
-  if (gtx->in_pos < gtx->ins_len)
-    in = &gtx->ins[gtx->in_pos];
-
-  if (gtx->out_pos < gtx->outs_len)
-    out = &gtx->outs[gtx->out_pos];
-
-  if (in == NULL && out == NULL)
-    THROW(HNS_EX_INVALID_PARSER_STATE);
-
-  if (gtx->store_len == 0) {
-    memmove(gtx->store, buf, *len);
-  } else {
-    memmove(gtx->store + gtx->store_len, buf, *len);
-    *len += gtx->store_len;
+  if (gtx->parse_pos < 5) {
+    if (gtx->ins_pos >= gtx->ins_len)
+      THROW(HNS_EX_INVALID_PARSER_STATE);
+    in = &gtx->ins[gtx->ins_pos];
   }
 
-  buf = gtx->store;
+  if (gtx->store_len > 0) {
+    memmove(gtx->store + gtx->store_len, buf, *len);
+    *len += gtx->store_len;
+    memmove(buf, gtx->store, *len);
+  }
 
   for (;;) {
     bool should_continue = false;
@@ -234,46 +231,10 @@ tx_parse(
           break;
         }
 
-        if (++gtx->in_pos < gtx->ins_len) {
-          in = &gtx->ins[gtx->in_pos];
+        if (++gtx->ins_pos < gtx->ins_len) {
+          should_continue = true;
+          in = &gtx->ins[gtx->ins_pos];
           gtx->parse_pos = 0;
-          should_continue = true;
-          break;
-        }
-      }
-
-      case 5: {
-        if (!read_bytes(&buf, len, &out->val, sizeof(out->val))) {
-          gtx->parse_pos = 5;
-          break;
-        }
-      }
-
-      case 6: {
-        uint8_t * data = out->addr_data;
-        uint8_t * data_len = &out->addr_len;
-        uint8_t data_sz = sizeof(out->addr_data);
-
-        if (!read_varbytes(&buf, len, data, data_sz, data_len)) {
-          gtx->parse_pos = 6;
-          break;
-        }
-      }
-
-      case 7: {
-        uint8_t * data = out->covenant_data;
-        uint8_t * data_len = &out->covenant_len;
-        uint8_t data_sz = sizeof(out->covenant_data);
-
-        if (!read_varbytes(&buf, len, data, data_sz, data_len)) {
-          gtx->parse_pos = 7;
-          break;
-        }
-
-        if (++gtx->out_pos < gtx->outs_len) {
-          out = &gtx->outs[gtx->out_pos];
-          gtx->parse_pos = 5;
-          should_continue = true;
           break;
         }
 
@@ -281,26 +242,38 @@ tx_parse(
         blake2b_init(&gtx->blake, 32, NULL, 0);
 
         for (i = 0; i < gtx->ins_len; i++)
-          blake2b_update(&gtx->blake, gtx->ins[i].prevout, sizeof(gtx->ins[i].prevout));
+          blake2b_update(&gtx->blake,
+            gtx->ins[i].prevout, sizeof(gtx->ins[i].prevout));
 
         blake2b_final(&gtx->blake, gtx->p_hash);
         blake2b_init(&gtx->blake, 32, NULL, 0);
 
         for (i = 0; i < gtx->ins_len; i++)
-          blake2b_update(&gtx->blake, gtx->ins[i].seq, sizeof(gtx->ins[i].seq));
+          blake2b_update(&gtx->blake,
+            gtx->ins[i].seq, sizeof(gtx->ins[i].seq));
 
         blake2b_final(&gtx->blake, gtx->s_hash);
         blake2b_init(&gtx->blake, 32, NULL, 0);
+      }
 
-        for (i = 0; i < gtx->outs_len; i++) {
-          hns_output_t o = gtx->outs[i];
-          blake2b_update(&gtx->blake, o.val, sizeof(o.val));
-          blake2b_update(&gtx->blake, o.addr_data, o.addr_len);
-          blake2b_update(&gtx->blake, o.covenant_data, o.covenant_len);
+      case 5: {
+        if (*len > 0) {
+          blake2b_update(&gtx->blake, buf, *len);
+          gtx->outs_sz -= *len;
+          buf += *len;
+          *len = 0;
+        }
+
+        if (gtx->outs_sz < 0)
+          THROW(HNS_EX_INVALID_PARSER_STATE);
+
+        if (gtx->outs_sz > 0) {
+          gtx->parse_pos = 5;
+          break;
         }
 
         blake2b_final(&gtx->blake, gtx->o_hash);
-        gtx->parse_pos = 8;
+        gtx->parse_pos = 6;
         break;
       }
     }
@@ -308,13 +281,14 @@ tx_parse(
     if (should_continue)
       continue;
 
-    if (*len > 0)
-      memcpy(gtx->store, buf, *len);
-
     if (*len < 0)
       THROW(HNS_EX_INVALID_PARSER_STATE);
 
+    if (*len > 0)
+      memmove(gtx->store, buf, *len);
+
     gtx->store_len = *len;
+
     break;
   }
 

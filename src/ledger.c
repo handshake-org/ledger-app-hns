@@ -16,7 +16,7 @@ uint16_t g_ledger_ui_step_count;
 uint8_t *
 ledger_init(void) {
   io_seproxyhal_init();
-  os_memset(G_io_apdu_buffer, 0, 255);
+  os_memset(G_io_apdu_buffer, 0, sizeof(G_io_apdu_buffer));
   USB_power(false);
   USB_power(true);
   ledger_ui_init();
