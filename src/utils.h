@@ -32,7 +32,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
-#include "apdu.h"
 #include "blake2b.h"
 #include "ledger.h"
 
@@ -87,7 +86,10 @@ size_varint(hns_varint_t val) {
   if (val <= 0xffff)
     return 3;
 
-  return 5;
+  if (val <= 0xffffffff)
+    return 5;
+
+  return 0;
 }
 
 static inline size_t
@@ -154,10 +156,8 @@ read_varint(uint8_t ** buf, uint8_t * len, hns_varint_t * varint) {
   *len -= 1;
 
   switch (prefix) {
-    case 0xff: {
-      THROW(HNS_EX_U64_NOT_SUPPORTED);
-      break;
-    }
+    case 0xff:
+      return false;
 
     case 0xfe: {
       uint32_t v;
@@ -175,7 +175,6 @@ read_varint(uint8_t ** buf, uint8_t * len, hns_varint_t * varint) {
       }
 
       *varint = v;
-
       break;
     }
 
@@ -195,14 +194,12 @@ read_varint(uint8_t ** buf, uint8_t * len, hns_varint_t * varint) {
       }
 
       *varint = v;
-
       break;
     }
 
-    default: {
+    default:
       *varint = prefix;
       break;
-    }
   }
 
   return true;
@@ -381,9 +378,13 @@ write_varint(uint8_t ** buf, hns_varint_t val) {
     return 3;
   }
 
-  write_u8(buf, 0xfe);
-  write_u32(buf, (uint32_t)val, true);
-  return 5;
+  if (val <= 0xffffffff) {
+    write_u8(buf, 0xfe);
+    write_u32(buf, (uint32_t)val, true);
+    return 5;
+  }
+
+  return 0;
 }
 
 static inline size_t
