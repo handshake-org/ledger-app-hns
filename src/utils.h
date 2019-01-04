@@ -46,39 +46,34 @@
 typedef uint32_t hns_varint_t;
 
 typedef struct hns_input_s {
-  uint8_t prevout[36];
+  uint8_t prev[36];
   uint8_t val[8];
   uint8_t seq[4];
   uint8_t script[HNS_MAX_SCRIPT];
   hns_varint_t script_len;
 } hns_input_t;
 
-typedef struct hns_transaction_s {
-  bool init;
+typedef struct hns_tx_state_s {
   blake2b_ctx blake;
-  uint8_t parse_pos;
-  uint8_t ins_pos;
+  bool parsed;
   uint8_t ins_len;
   uint8_t outs_len;
-  uint8_t store_len;
-  uint8_t store[35]; // 1b less than largest item parsed.
-  uint8_t p_hash[32];
-  uint8_t s_hash[32];
-  uint8_t o_hash[32];
-  uint8_t tx_hash[32];
+  uint8_t prevs[32];
+  uint8_t seqs[32];
+  uint8_t outs[32];
+  uint8_t hash[32];
   uint8_t ver[4];
   uint8_t locktime[4];
   hns_input_t ins[HNS_MAX_INPUTS];
-  hns_varint_t outs_sz;
-} hns_transaction_t;
+} hns_tx_state_t;
 
 typedef union {
-  hns_transaction_t tx;
+  hns_tx_state_t tx_state;
 } global_ctx_t;
 
 extern global_ctx_t global;
 
-static inline bool
+static inline uint8_t
 size_varint(hns_varint_t val) {
   if (val < 0xfd)
     return 1;
@@ -92,7 +87,7 @@ size_varint(hns_varint_t val) {
   return 0;
 }
 
-static inline size_t
+static inline uint8_t
 size_varsize(size_t val) {
   return size_varint((hns_varint_t)val);
 }

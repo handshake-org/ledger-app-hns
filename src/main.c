@@ -17,7 +17,6 @@ hns_boot(void) {
 
 static inline void
 hns_loop() {
-  global.tx.init = false;
   volatile uint8_t * buf = ledger_init();
   volatile uint8_t len = 0;
   volatile uint8_t flags = 0;
