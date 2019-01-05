@@ -29,6 +29,7 @@
 #include <string.h>
 #include "blake2b.h"
 #include "ledger.h"
+#include "segwit-addr.h"
 
 #define HNS_APP_NAME "Handshake"
 #define HNS_MAX_PATH 10
@@ -48,8 +49,13 @@ typedef struct hns_bip32_node_s {
 } hns_bip32_node_t;
 
 typedef struct hns_get_public_key_ctx_s {
-  bool display;
+  bool confirm;
+  bool gen_addr;
   char hrp[2];
+  uint8_t pos;
+  uint8_t confirm_str[21];
+  uint8_t part_str[13];
+  uint8_t full_str[67];
   uint8_t addr[42];
   hns_bip32_node_t n;
 } hns_get_public_key_ctx_t;
@@ -82,6 +88,20 @@ typedef union {
 } global_ctx_t;
 
 extern global_ctx_t global;
+
+static inline void
+hns_create_p2pkh_addr(char * hrp, uint8_t * pub, uint8_t * out) {
+  uint8_t pkh[20];
+  uint8_t addr[42];
+
+  if (blake2b(pkh, 20, NULL, 0, pub, 33))
+    THROW(EXCEPTION);
+
+  if (!segwit_addr_encode(addr, hrp, 0, pkh, 20))
+    THROW(EXCEPTION);
+
+  memmove(out, addr, sizeof(addr));
+}
 
 static inline uint8_t
 size_varint(hns_varint_t val) {

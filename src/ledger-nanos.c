@@ -1,5 +1,8 @@
 #include "glyphs.h"
 #include "ledger.h"
+#include "utils.h"
+
+static hns_get_public_key_ctx_t * gpub = &global.pub;
 
 #if defined(TARGET_NANOS)
 
@@ -29,4 +32,5 @@ ledger_ui_idle(void) {
   g_ledger_ui_step_count = 0;
   UX_MENU_DISPLAY(0, menu_main, NULL);
 }
+
 #endif
