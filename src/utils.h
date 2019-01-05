@@ -62,7 +62,7 @@ typedef struct hns_input_s {
   hns_varint_t script_len;
 } hns_input_t;
 
-typedef struct hns_tx_sign_ctx_s {
+typedef struct hns_sign_tx_ctx_s {
   blake2b_ctx blake;
   bool parsed;
   uint8_t ins_len;
@@ -74,11 +74,11 @@ typedef struct hns_tx_sign_ctx_s {
   uint8_t ver[4];
   uint8_t locktime[4];
   hns_input_t ins[HNS_MAX_INPUTS];
-} hns_tx_sign_ctx_t;
+} hns_sign_tx_ctx_t;
 
 typedef union {
   hns_get_public_key_ctx_t pub;
-  hns_tx_sign_ctx_t tx;
+  hns_sign_tx_ctx_t tx;
 } global_ctx_t;
 
 extern global_ctx_t global;

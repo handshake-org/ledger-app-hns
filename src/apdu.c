@@ -24,16 +24,16 @@
 #define OUTS 0x05
 
 static hns_get_public_key_ctx_t * gpub = &global.pub;
-static hns_tx_sign_ctx_t * gtx = &global.tx;
+static hns_sign_tx_ctx_t * gtx = &global.tx;
 
 static inline void
-addr_create_p2pkh(char *, uint8_t *, uint8_t *);
+create_p2pkh_addr(char *, uint8_t *, uint8_t *);
 
 static inline uint8_t
-tx_parse(uint8_t *, volatile uint8_t *, bool);
+parse_tx(uint8_t *, volatile uint8_t *, bool);
 
 static inline uint8_t
-tx_sign(uint8_t *, volatile uint8_t *, volatile uint8_t *);
+sign_tx(uint8_t *, volatile uint8_t *, volatile uint8_t *);
 
 volatile uint8_t
 hns_apdu_get_firmware_version(
@@ -115,7 +115,7 @@ hns_apdu_get_public_key(
 
   hns_bip32_node_t * n = &gpub->n;
   ledger_ecdsa_derive(n->path, n->depth, n->chaincode, &n->prv, &n->pub);
-  addr_create_p2pkh(gpub->hrp, gpub->n.pub.W, gpub->addr);
+  create_p2pkh_addr(gpub->hrp, gpub->n.pub.W, gpub->addr);
 
   len  = write_varbytes(&out, gpub->n.pub.W, 33);
   len += write_varbytes(&out, gpub->addr, sizeof(gpub->addr));
@@ -128,7 +128,7 @@ hns_apdu_get_public_key(
 }
 
 volatile uint8_t
-hns_apdu_tx_sign(
+hns_apdu_sign_tx(
   uint8_t init,
   uint8_t func,
   uint8_t len,
@@ -157,11 +157,11 @@ hns_apdu_tx_sign(
 
   switch(func) {
     case PARSE:
-      len = tx_parse(&len, in, init);
+      len = parse_tx(&len, in, init);
       break;
 
     case SIGN:
-      len = tx_sign(&len, in, out);
+      len = sign_tx(&len, in, out);
       break;
 
     default:
@@ -173,7 +173,7 @@ hns_apdu_tx_sign(
 }
 
 static inline void
-addr_create_p2pkh(char * hrp, uint8_t * pub, uint8_t * out) {
+create_p2pkh_addr(char * hrp, uint8_t * pub, uint8_t * out) {
   uint8_t pkh[20];
   uint8_t addr[42];
 
@@ -187,7 +187,7 @@ addr_create_p2pkh(char * hrp, uint8_t * pub, uint8_t * out) {
 }
 
 static inline uint8_t
-tx_parse(
+parse_tx(
   uint8_t * len,
   volatile uint8_t * buf,
   bool init
@@ -349,7 +349,7 @@ tx_parse(
 };
 
 static inline uint8_t
-tx_sign(
+sign_tx(
   uint8_t * len,
   volatile uint8_t * buf,
   volatile uint8_t * sig
