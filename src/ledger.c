@@ -25,18 +25,18 @@ ledger_init(void) {
 }
 
 void
-ledger_bip32_node_derive(
-  ledger_bip32_node_t * n,
+ledger_ecdsa_derive(
   uint32_t * path,
-  uint8_t depth
+  uint8_t depth,
+  uint8_t * chaincode,
+  ledger_private_key_t * prv,
+  ledger_public_key_t * pub
 ) {
-  uint8_t prv[32];
-  os_perso_derive_node_bip32(CX_CURVE_256K1, path, depth, prv, n->code);
-  cx_ecdsa_init_private_key(CX_CURVE_256K1, prv, 32, &n->prv);
-  cx_ecfp_generate_pair(CX_CURVE_256K1, &n->pub, &n->prv, true);
-  n->pub.W[0] = n->pub.W[64] & 1 ? 0x03 : 0x02;
-  n->path = path;
-  n->depth = depth;
+  uint8_t master[32];
+  os_perso_derive_node_bip32(CX_CURVE_256K1, path, depth, master, chaincode);
+  cx_ecdsa_init_private_key(CX_CURVE_256K1, master, 32, prv);
+  cx_ecfp_generate_pair(CX_CURVE_256K1, pub, prv, true);
+  pub->W[0] = pub->W[64] & 1 ? 0x03 : 0x02;
 }
 
 void
@@ -50,10 +50,6 @@ ledger_ecdsa_sign(
 
   cx_ecdsa_sign(priv, CX_LAST | CX_RND_TRNG, CX_SHA256,
     hash, hash_len, sig, &info);
-
-  // if (info & CX_ECCINFO_PARITY_ODD) {
-  //   sig[0] |= 0x01;
-  // }
 }
 
 /**

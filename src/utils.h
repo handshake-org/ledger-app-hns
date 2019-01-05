@@ -39,6 +39,21 @@
 
 typedef uint32_t hns_varint_t;
 
+typedef struct hns_bip32_node_s {
+  uint8_t depth;
+  uint32_t path[HNS_MAX_PATH];
+  uint8_t chaincode[32];
+  ledger_private_key_t prv;
+  ledger_public_key_t pub;
+} hns_bip32_node_t;
+
+typedef struct hns_get_public_key_ctx_s {
+  bool display;
+  char hrp[2];
+  uint8_t addr[42];
+  hns_bip32_node_t n;
+} hns_get_public_key_ctx_t;
+
 typedef struct hns_input_s {
   uint8_t prev[36];
   uint8_t val[8];
@@ -47,7 +62,7 @@ typedef struct hns_input_s {
   hns_varint_t script_len;
 } hns_input_t;
 
-typedef struct hns_tx_state_s {
+typedef struct hns_tx_sign_ctx_s {
   blake2b_ctx blake;
   bool parsed;
   uint8_t ins_len;
@@ -59,10 +74,11 @@ typedef struct hns_tx_state_s {
   uint8_t ver[4];
   uint8_t locktime[4];
   hns_input_t ins[HNS_MAX_INPUTS];
-} hns_tx_state_t;
+} hns_tx_sign_ctx_t;
 
 typedef union {
-  hns_tx_state_t tx_state;
+  hns_get_public_key_ctx_t pub;
+  hns_tx_sign_ctx_t tx;
 } global_ctx_t;
 
 extern global_ctx_t global;

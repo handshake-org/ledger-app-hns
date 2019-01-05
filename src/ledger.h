@@ -6,14 +6,8 @@
 #include "os.h"
 #include "os_io_seproxyhal.h"
 
-typedef struct
-ledger_bip32_node_s {
-  uint32_t * path;
-  uint8_t depth;
-  cx_ecfp_private_key_t prv;
-  cx_ecfp_public_key_t pub;
-  uint8_t code[32];
-} ledger_bip32_node_t;
+typedef cx_ecfp_private_key_t ledger_private_key_t;
+typedef cx_ecfp_public_key_t ledger_public_key_t;
 
 extern uint16_t g_ledger_ui_step;
 extern uint16_t g_ledger_ui_step_count;
@@ -28,10 +22,16 @@ void
 ledger_ui_idle(void);
 
 void
-ledger_bip32_node_derive(ledger_bip32_node_t *, uint32_t *, uint8_t);
+ledger_ecdsa_derive(
+  uint32_t *,
+  uint8_t,
+  uint8_t *,
+  ledger_private_key_t *,
+  ledger_public_key_t *
+);
 
 void
-ledger_ecdsa_sign(cx_ecfp_private_key_t *, uint8_t *, size_t, uint8_t *);
+ledger_ecdsa_sign(ledger_private_key_t *, uint8_t *, size_t, uint8_t *);
 
 static inline void
 ledger_boot(void) {

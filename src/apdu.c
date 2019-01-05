@@ -6,6 +6,12 @@
 #include "segwit-addr.h"
 #include "utils.h"
 
+#define ADDRESS 0x00
+#define PUBKEY 0x01
+#define MAINNET 0x00
+#define TESTNET 0x01
+#define SIMNET 0x02
+#define REGTEST 0x03
 #define NO 0x00
 #define YES 0x01
 #define PARSE 0x00
@@ -17,7 +23,8 @@
 #define SCRIPT 0x04
 #define OUTS 0x05
 
-static hns_tx_state_t * gtx = &global.tx_state;
+static hns_get_public_key_ctx_t * gpub = &global.pub;
+static hns_tx_sign_ctx_t * gtx = &global.tx;
 
 static inline void
 addr_create_p2pkh(char *, uint8_t *, uint8_t *);
@@ -56,55 +63,63 @@ hns_apdu_get_firmware_version(
 }
 
 volatile uint8_t
-hns_apdu_get_wallet_public_key(
-  uint8_t p1,
-  uint8_t p2,
+hns_apdu_get_public_key(
+  uint8_t display,
+  uint8_t network,
   uint8_t len,
   volatile uint8_t * buf,
   volatile uint8_t * out,
   volatile uint8_t * flags
 ) {
-  char hrp[2];
-  uint8_t addr[42];
-  uint8_t depth;
-  uint32_t path[HNS_MAX_PATH];
-  ledger_bip32_node_t n;
-
-  switch(p1) {
+  switch(display) {
     case 0x00:
-    case 0x01:
-      // TODO: display addr
+      gpub->display = ADDRESS;
       break;
+
+    case 0x01:
+      gpub->display = PUBKEY;
+      break;
+
     default:
       THROW(HNS_EX_INCORRECT_P1_P2);
+      break;
   }
 
-  switch(p2) {
-    case 0:
-      strcpy(hrp, "hs");
-    case 1:
-      strcpy(hrp, "ts");
-    case 2:
-      strcpy(hrp, "ss");
-    case 3:
-      strcpy(hrp, "rs");
+  switch(network) {
+    case MAINNET:
+      strcpy(gpub->hrp, "hs");
       break;
+
+    case TESTNET:
+      strcpy(gpub->hrp, "ts");
+      break;
+
+    case SIMNET:
+      strcpy(gpub->hrp, "ss");
+      break;
+
+    case REGTEST:
+      strcpy(gpub->hrp, "rs");
+      break;
+
     default:
       THROW(HNS_EX_INCORRECT_P1_P2);
+      break;
   }
 
   if (!ledger_pin_validated())
     THROW(HNS_SW_SECURITY_STATUS_NOT_SATISFIED);
 
-  if (!read_bip32_path(&buf, &len, &depth, path))
+  if (!read_bip32_path(&buf, &len, &gpub->n.depth, gpub->n.path))
     THROW(HNS_EX_CANNOT_READ_BIP32_PATH);
 
-  ledger_bip32_node_derive(&n, path, depth);
-  addr_create_p2pkh(hrp, n.pub.W, addr);
+  hns_bip32_node_t * n = &gpub->n;
+  ledger_ecdsa_derive(n->path, n->depth, n->chaincode, &n->prv, &n->pub);
+  addr_create_p2pkh(gpub->hrp, gpub->n.pub.W, gpub->addr);
 
-  len  = write_varbytes(&out, n.pub.W, 33);
-  len += write_varbytes(&out, addr, sizeof(addr));
-  len += write_bytes(&out, n.code, sizeof(n.code));
+  len  = write_varbytes(&out, gpub->n.pub.W, 33);
+  len += write_varbytes(&out, gpub->addr, sizeof(gpub->addr));
+  len += write_bytes(&out, gpub->n.chaincode, sizeof(gpub->n.chaincode));
 
   if (len != 109)
     THROW(HNS_EX_INCORRECT_WRITE_LEN);
@@ -158,14 +173,17 @@ hns_apdu_tx_sign(
 }
 
 static inline void
-addr_create_p2pkh(char * hrp, uint8_t * pub, uint8_t * addr) {
+addr_create_p2pkh(char * hrp, uint8_t * pub, uint8_t * out) {
   uint8_t pkh[20];
+  uint8_t addr[42];
 
   if (blake2b(pkh, 20, NULL, 0, pub, 33))
     THROW(EXCEPTION);
 
   if (!segwit_addr_encode(addr, hrp, 0, pkh, 20))
     THROW(EXCEPTION);
+
+  memmove(out, addr, sizeof(addr));
 }
 
 static inline uint8_t
@@ -180,12 +198,14 @@ tx_parse(
   static uint8_t store_len;
   static uint8_t store[35];
 
-  gtx->parsed = false;
 
   if (init) {
     i = 0;
     next_item = 0;
+    outs_size = 0;
     store_len = 0;
+
+    gtx->parsed = false;
 
     memset(store, 0, sizeof(store));
     memset(gtx->prevs, 0, sizeof(gtx->prevs));
@@ -335,17 +355,15 @@ tx_sign(
   volatile uint8_t * sig
 ) {
   const uint8_t SIGHASH_ALL[4] = {0x01, 0x00, 0x00, 0x00};
-  uint8_t type[4];
   uint8_t index;
-  uint8_t depth;
-  uint32_t path[HNS_MAX_PATH];
-  ledger_bip32_node_t n;
+  uint8_t type[4];
   hns_input_t in;
+  hns_bip32_node_t n;
 
   if (!gtx->parsed)
     THROW(HNS_EX_INVALID_PARSER_STATE);
 
-  if (!read_bip32_path(&buf, len, &depth, path))
+  if (!read_bip32_path(&buf, len, &n.depth, n.path))
     THROW(INVALID_PARAMETER);
 
   if (!read_u8(&buf, len, &index))
@@ -375,7 +393,7 @@ tx_sign(
   blake2b_update(ctx, gtx->locktime, sizeof(gtx->locktime));
   blake2b_update(ctx, type, sizeof(type));
   blake2b_final(ctx, gtx->hash);
-  ledger_bip32_node_derive(&n, path, depth);
+  ledger_ecdsa_derive(n.path, n.depth, n.chaincode, &n.prv, &n.pub);
   ledger_ecdsa_sign(&n.prv, gtx->hash, sizeof(gtx->hash), sig);
 
   return sig[1] + 2;
