@@ -80,7 +80,7 @@ static unsigned int
 ledger_ui_approve_public_key_button(unsigned int mask, unsigned int ctr) {
   switch (mask) {
     case BUTTON_EVT_RELEASED | BUTTON_LEFT: {
-      ledger_apdu_exchange_with_sw(IO_RETURN_AFTER_TX, HNS_SW_USER_REJECTED, 0);
+      ledger_apdu_exchange_with_sw(IO_RETURN_AFTER_TX, 0, HNS_SW_USER_REJECTED);
       ledger_ui_idle();
       break;
     }
@@ -99,7 +99,7 @@ ledger_ui_approve_public_key_button(unsigned int mask, unsigned int ctr) {
       if (len != 109)
         THROW(HNS_EX_INCORRECT_WRITE_LEN);
 
-      io_exchange_with_code(HNS_SW_OK, len);
+      ledger_apdu_exchange_with_sw(IO_RETURN_AFTER_TX, len, HNS_SW_OK);
 
       if (gpub->gen_addr) {
         os_memmove(gpub->full_str, gpub->addr, sizeof(gpub->addr));
@@ -189,7 +189,6 @@ hns_apdu_get_public_key(
     THROW(HNS_EX_CANNOT_READ_BIP32_PATH);
 
   if (gpub->confirm) {
-    PRINTF("Should confirm on screen\n");
     UX_DISPLAY(ledger_ui_approve_public_key, NULL);
     *flags |= IO_ASYNCH_REPLY;
     return 0;
