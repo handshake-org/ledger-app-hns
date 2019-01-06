@@ -1,5 +1,3 @@
-#include <stdbool.h>
-#include <string.h>
 #include "apdu.h"
 #include "ledger.h"
 

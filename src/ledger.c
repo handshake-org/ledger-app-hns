@@ -1,8 +1,5 @@
 #include "ledger.h"
 
-uint16_t g_ledger_ui_step;
-uint16_t g_ledger_ui_step_count;
-
 /**
  * The following functions are defined in ledger.h
  *
@@ -13,6 +10,9 @@ uint16_t g_ledger_ui_step_count;
  * static inline unsigned int ledger_pin_validated(void);
  */
 
+uint16_t g_ledger_ui_step;
+uint16_t g_ledger_ui_step_count;
+
 uint8_t *
 ledger_init(void) {
   io_seproxyhal_init();
@@ -20,7 +20,6 @@ ledger_init(void) {
   USB_power(false);
   USB_power(true);
   ledger_ui_init();
-
   return G_io_apdu_buffer;
 }
 
@@ -47,7 +46,6 @@ ledger_ecdsa_sign(
   uint8_t * sig
 ) {
   unsigned int info = 0;
-
   cx_ecdsa_sign(priv, CX_LAST | CX_RND_TRNG, CX_SHA256,
     hash, hash_len, sig, &info);
 }

@@ -1,4 +1,3 @@
-#include <stdbool.h>
 #include <string.h>
 #include "apdu.h"
 #include "blake2b.h"
@@ -15,18 +14,18 @@
 #define P2_REGTEST 0x03
 
 static const bagl_element_t ledger_ui_compare_public_key[] = {
-  UI_BACKGROUND(),
-  UI_ICON_LEFT(0x01, BAGL_GLYPH_ICON_LEFT),
-  UI_ICON_RIGHT(0x02, BAGL_GLYPH_ICON_RIGHT),
-  UI_TEXT(0x00, 0, 12, 128, "Compare:"),
-  UI_TEXT(0x00, 0, 26, 128, global.pub.part_str),
+  LEDGER_UI_BACKGROUND(),
+  LEDGER_UI_ICON_LEFT(0x01, BAGL_GLYPH_ICON_LEFT),
+  LEDGER_UI_ICON_RIGHT(0x02, BAGL_GLYPH_ICON_RIGHT),
+  LEDGER_UI_TEXT(0x00, 0, 12, 128, "Compare:"),
+  LEDGER_UI_TEXT(0x00, 0, 26, 128, global.pub.part_str),
 };
 
 static const bagl_element_t ledger_ui_approve_public_key[] = {
-  UI_BACKGROUND(),
-  UI_ICON_LEFT(0x00, BAGL_GLYPH_ICON_CROSS),
-  UI_ICON_RIGHT(0x00, BAGL_GLYPH_ICON_CHECK),
-  UI_TEXT(0x00, 0, 12, 128, global.pub.confirm_str),
+  LEDGER_UI_BACKGROUND(),
+  LEDGER_UI_ICON_LEFT(0x00, BAGL_GLYPH_ICON_CROSS),
+  LEDGER_UI_ICON_RIGHT(0x00, BAGL_GLYPH_ICON_CHECK),
+  LEDGER_UI_TEXT(0x00, 0, 12, 128, global.pub.confirm_str),
 };
 
 static hns_get_public_key_ctx_t * gpub = &global.pub;
