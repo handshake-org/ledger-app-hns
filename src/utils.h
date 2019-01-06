@@ -90,6 +90,19 @@ typedef union {
 extern global_ctx_t global;
 
 static inline void
+hns_bin2hex(uint8_t * hex, uint8_t * bin, uint8_t len) {
+  static uint8_t const lookup[] = "0123456789abcdef";
+  uint8_t i;
+
+  for (i = 0; i < len; i++) {
+    hex[2*i+0] = lookup[(bin[i]>>4) & 0x0f];
+    hex[2*i+1] = lookup[(bin[i]>>0) & 0x0f];
+  }
+
+  hex[2*len] = '\0';
+}
+
+static inline void
 hns_create_p2pkh_addr(char * hrp, uint8_t * pub, uint8_t * out) {
   uint8_t pkh[20];
   uint8_t addr[42];

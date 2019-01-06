@@ -6,9 +6,6 @@
 #include "os.h"
 #include "os_io_seproxyhal.h"
 
-typedef cx_ecfp_private_key_t ledger_private_key_t;
-typedef cx_ecfp_public_key_t ledger_public_key_t;
-
 #if defined(TARGET_NANOS)
 
 #define UI_BACKGROUND() \
@@ -28,6 +25,9 @@ typedef cx_ecfp_public_key_t ledger_public_key_t;
     BAGL_FONT_OPEN_SANS_REGULAR_11px|BAGL_FONT_ALIGNMENT_CENTER,0}, \
    (char *)text,0,0,0,NULL,NULL,NULL}
 #endif
+
+typedef cx_ecfp_private_key_t ledger_private_key_t;
+typedef cx_ecfp_public_key_t ledger_public_key_t;
 
 extern uint16_t g_ledger_ui_step;
 extern uint16_t g_ledger_ui_step_count;
@@ -77,6 +77,17 @@ ledger_exit(unsigned int exit_code) {
 static inline uint16_t
 ledger_apdu_exchange(uint8_t flags, uint16_t len) {
   return io_exchange(CHANNEL_APDU | flags, len);
+}
+
+static inline uint16_t
+ledger_apdu_exchange_with_sw(uint8_t flags, uint16_t len, uint16_t sw) {
+  G_io_apdu_buffer[len++] = sw >> 8;
+  G_io_apdu_buffer[len++] = sw & 0xFF;
+  return io_exchange(CHANNEL_APDU | flags, len);
+}
+
+static inline void
+io_exchange_with_code(uint16_t code, uint8_t len) {
 }
 
 static inline unsigned int
