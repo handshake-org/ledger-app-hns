@@ -5,16 +5,17 @@
 #include "ledger.h"
 #include "utils.h"
 
-#define NO 0x00
-#define YES 0x01
-#define PARSE 0x00
-#define SIGN 0x01
-#define PREV 0x00
-#define VAL 0x01
-#define SEQ 0x02
+#define P1_NO_INIT 0x00
+#define P1_INIT 0x01
+#define P2_PARSE 0x00
+#define P2_SIGN 0x01
+
+#define PREVOUT 0x00
+#define VALUE 0x01
+#define SEQUENCE 0x02
 #define SCRIPT_LEN 0x03
 #define SCRIPT 0x04
-#define OUTS 0x05
+#define OUTPUTS 0x05
 
 static hns_sign_tx_ctx_t * gtx = &global.tx;
 
@@ -62,7 +63,7 @@ parse_tx(uint8_t * len, volatile uint8_t * buf, bool init) {
     in = &gtx->ins[i];
 
   if (in == NULL)
-    if (next_item != OUTS)
+    if (next_item != OUTPUTS)
       THROW(HNS_EX_INVALID_PARSER_STATE);
 
   if (store_len > 0) {
@@ -77,21 +78,21 @@ parse_tx(uint8_t * len, volatile uint8_t * buf, bool init) {
     bool should_continue = false;
 
     switch(next_item) {
-      case PREV: {
+      case PREVOUT: {
         if (!read_bytes(&buf, len, &in->prev, sizeof(in->prev)))
           break;
 
         next_item++;
       }
 
-      case VAL: {
+      case VALUE: {
         if (!read_bytes(&buf, len, &in->val, sizeof(in->val)))
           break;
 
         next_item++;
       }
 
-      case SEQ: {
+      case SEQUENCE: {
         if (!read_bytes(&buf, len, &in->seq, sizeof(in->seq)))
           break;
 
@@ -113,7 +114,7 @@ parse_tx(uint8_t * len, volatile uint8_t * buf, bool init) {
 
         if (++i < gtx->ins_len) {
           in = &gtx->ins[i];
-          next_item = PREV;
+          next_item = PREVOUT;
           should_continue = true;
           break;
         }
@@ -133,7 +134,7 @@ parse_tx(uint8_t * len, volatile uint8_t * buf, bool init) {
         blake2b_init(ctx, 32, NULL, 0);
       }
 
-      case OUTS: {
+      case OUTPUTS: {
         if (*len > 0) {
           blake2b_update(ctx, buf, *len);
           outs_size -= *len;
@@ -147,8 +148,8 @@ parse_tx(uint8_t * len, volatile uint8_t * buf, bool init) {
         if (outs_size > 0)
           break;
 
-        gtx->parsed = true;
         blake2b_final(ctx, gtx->outs);
+        gtx->parsed = true;
         next_item++;
         break;
       }
@@ -232,8 +233,8 @@ hns_apdu_sign_tx(
   volatile uint8_t * flags
 ) {
   switch(init) {
-    case YES: {
-      if (func == SIGN)
+    case P1_INIT: {
+      if (func == P2_SIGN)
         THROW(HNS_EX_INCORRECT_P1_P2);
 
       if (!ledger_pin_validated())
@@ -242,7 +243,7 @@ hns_apdu_sign_tx(
       break;
     }
 
-    case NO:
+    case P1_NO_INIT:
       break;
 
     default:
@@ -251,11 +252,11 @@ hns_apdu_sign_tx(
   };
 
   switch(func) {
-    case PARSE:
+    case P2_PARSE:
       len = parse_tx(&len, in, init);
       break;
 
-    case SIGN:
+    case P2_SIGN:
       len = sign_tx(&len, in, out);
       break;
 

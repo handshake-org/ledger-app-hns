@@ -8,6 +8,7 @@
 #define P1_PUBKEY_NO_CONFIRM 0x01
 #define P1_ADDRESS_CONFIRM 0x02
 #define P1_PUBKEY_CONFIRM 0x03
+
 #define P2_MAINNET 0x00
 #define P2_TESTNET 0x01
 #define P2_SIMNET 0x02

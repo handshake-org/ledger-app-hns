@@ -32,10 +32,9 @@
 #include "segwit-addr.h"
 
 #define HNS_APP_NAME "Handshake"
+#define HNS_MAX_INPUTS 15
 #define HNS_MAX_PATH 10
 #define HNS_MAX_PATH_LEN 4 * HNS_MAX_PATH + 1
-
-#define HNS_MAX_INPUTS 15
 #define HNS_MAX_SCRIPT 25
 
 typedef uint32_t hns_varint_t;
