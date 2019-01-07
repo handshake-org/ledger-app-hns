@@ -14,50 +14,79 @@
 #define P2_SIMNET 0x02
 #define P2_REGTEST 0x03
 
-static const bagl_element_t ledger_ui_compare_public_key[] = {
-  LEDGER_UI_BACKGROUND(),
-  LEDGER_UI_ICON_LEFT(0x01, BAGL_GLYPH_ICON_LEFT),
-  LEDGER_UI_ICON_RIGHT(0x02, BAGL_GLYPH_ICON_RIGHT),
-  LEDGER_UI_TEXT(0x00, 0, 12, 128, "Compare:"),
-  LEDGER_UI_TEXT(0x00, 0, 26, 128, global.pub.part_str),
-};
-
 static const bagl_element_t ledger_ui_approve_public_key[] = {
   LEDGER_UI_BACKGROUND(),
   LEDGER_UI_ICON_LEFT(0x00, BAGL_GLYPH_ICON_CROSS),
   LEDGER_UI_ICON_RIGHT(0x00, BAGL_GLYPH_ICON_CHECK),
+  LEDGER_UI_TEXT(0x00, 0, 12, 128, "Correct match?")
+};
+
+static const bagl_element_t ledger_ui_compare_public_key[] = {
+  LEDGER_UI_BACKGROUND(),
+  LEDGER_UI_ICON_LEFT(0x01, BAGL_GLYPH_ICON_LEFT),
+  LEDGER_UI_ICON_RIGHT(0x02, BAGL_GLYPH_ICON_RIGHT),
   LEDGER_UI_TEXT(0x00, 0, 12, 128, global.pub.confirm_str),
+  LEDGER_UI_TEXT(0x00, 0, 26, 128, global.pub.part_str)
 };
 
 static hns_get_public_key_ctx_t * gpub = &global.pub;
+
+static unsigned int
+ledger_ui_approve_public_key_button(unsigned int mask, unsigned int ctr) {
+  switch (mask) {
+    case BUTTON_EVT_RELEASED | BUTTON_LEFT: {
+      memset(g_ledger_apdu_exchange_buffer, 0, g_ledger_apdu_exchange_buffer_size);
+      ledger_apdu_exchange_with_sw(IO_RETURN_AFTER_TX, 0, HNS_SW_USER_REJECTED);
+      ledger_ui_idle();
+      break;
+    }
+
+    case BUTTON_EVT_RELEASED | BUTTON_RIGHT: {
+      hns_bip32_node_t * n = &gpub->n;
+      uint8_t * out = g_ledger_apdu_exchange_buffer;
+      uint8_t len = 0;
+
+      len += write_varbytes(&out, n->pub.W, 33);
+      len += write_varbytes(&out, gpub->addr, sizeof(gpub->addr));
+      len += write_bytes(&out, n->chaincode, sizeof(n->chaincode));
+
+      if (len != 109)
+        THROW(HNS_EX_INCORRECT_WRITE_LEN);
+
+      ledger_apdu_exchange_with_sw(IO_RETURN_AFTER_TX, len, HNS_SW_OK);
+      ledger_ui_idle();
+      break;
+    }
+  }
+
+  return 0;
+}
 
 static unsigned int
 ledger_ui_compare_public_key_button(unsigned int mask, unsigned int ctr) {
   switch (mask) {
     case BUTTON_LEFT:
     case BUTTON_EVT_FAST | BUTTON_LEFT: {
-      if (gpub->pos > 0)
-        gpub->pos--;
+      if (gpub->full_str_pos > 0)
+        gpub->full_str_pos--;
 
-      os_memmove(gpub->part_str, gpub->full_str + gpub->pos, 12);
+      os_memmove(gpub->part_str, gpub->full_str + gpub->full_str_pos, 12);
       UX_REDISPLAY();
       break;
     }
 
     case BUTTON_RIGHT:
     case BUTTON_EVT_FAST | BUTTON_RIGHT: {
-      uint8_t size = gpub->gen_addr ? 42 : 66;
+      if (gpub->full_str_pos < gpub->full_str_len - 12)
+        gpub->full_str_pos++;
 
-      if (gpub->pos < size - 12)
-        gpub->pos++;
-
-      os_memmove(gpub->part_str, gpub->full_str + gpub->pos, 12);
+      os_memmove(gpub->part_str, gpub->full_str + gpub->full_str_pos, 12);
       UX_REDISPLAY();
       break;
     }
 
     case BUTTON_EVT_RELEASED | BUTTON_LEFT | BUTTON_RIGHT: {
-      ledger_ui_idle();
+      UX_DISPLAY(ledger_ui_approve_public_key, NULL);
       break;
     }
   }
@@ -67,58 +96,11 @@ ledger_ui_compare_public_key_button(unsigned int mask, unsigned int ctr) {
 
 static const bagl_element_t *
 ledger_ui_compare_public_key_prepro(const bagl_element_t * e) {
-  uint8_t size = gpub->gen_addr ? 42 : 66;
-
-  if ((e->component.userid == 1 && gpub->pos == 0) ||
-      (e->component.userid == 2 && gpub->pos == size - 12))
+  if ((e->component.userid == 1 && gpub->full_str_pos == 0) ||
+      (e->component.userid == 2 && gpub->full_str_pos == gpub->full_str_len - 12))
     return NULL;
 
   return e;
-}
-
-static unsigned int
-ledger_ui_approve_public_key_button(unsigned int mask, unsigned int ctr) {
-  switch (mask) {
-    case BUTTON_EVT_RELEASED | BUTTON_LEFT: {
-      ledger_apdu_exchange_with_sw(IO_RETURN_AFTER_TX, 0, HNS_SW_USER_REJECTED);
-      ledger_ui_idle();
-      break;
-    }
-
-    case BUTTON_EVT_RELEASED | BUTTON_RIGHT: {
-      uint8_t ** out = &G_io_apdu_buffer;
-      uint8_t len = 0;
-
-      hns_bip32_node_t * n = &gpub->n;
-      ledger_ecdsa_derive(n->path, n->depth, n->chaincode, &n->prv, &n->pub);
-      hns_create_p2pkh_addr(gpub->hrp, n->pub.W, gpub->addr);
-      len  = write_varbytes(&out, n->pub.W, 33);
-      len += write_varbytes(&out, gpub->addr, sizeof(gpub->addr));
-      len += write_bytes(&out, n->chaincode, sizeof(n->chaincode));
-
-      if (len != 109)
-        THROW(HNS_EX_INCORRECT_WRITE_LEN);
-
-      ledger_apdu_exchange_with_sw(IO_RETURN_AFTER_TX, len, HNS_SW_OK);
-
-      if (gpub->gen_addr) {
-        os_memmove(gpub->full_str, gpub->addr, sizeof(gpub->addr));
-        gpub->full_str[sizeof(gpub->addr)] = '\0';
-      } else {
-        hns_bin2hex(gpub->full_str, n->pub.W, 33);
-      }
-
-      os_memmove(gpub->confirm_str, "Compare:", 9);
-      os_memmove(gpub->part_str, gpub->full_str, 12);
-      gpub->part_str[12] = '\0';
-      gpub->pos = 0;
-
-      UX_DISPLAY(ledger_ui_compare_public_key, ledger_ui_compare_public_key_prepro);
-      break;
-    }
-  }
-
-  return 0;
 }
 
 volatile uint8_t
@@ -134,7 +116,6 @@ hns_apdu_get_public_key(
     case P1_ADDRESS_CONFIRM:
       gpub->confirm = true;
       gpub->gen_addr = true;
-      memmove(gpub->confirm_str, "Generate Address?", 18);
       break;
 
     case P1_ADDRESS_NO_CONFIRM:
@@ -144,7 +125,6 @@ hns_apdu_get_public_key(
 
     case P1_PUBKEY_CONFIRM:
       gpub->confirm = true;
-      memmove(gpub->confirm_str, "Generate Public Key?", 21);
       gpub->gen_addr = false;
       break;
 
@@ -188,14 +168,30 @@ hns_apdu_get_public_key(
   if (!read_bip32_path(&buf, &len, &n->depth, n->path))
     THROW(HNS_EX_CANNOT_READ_BIP32_PATH);
 
+  ledger_ecdsa_derive(n->path, n->depth, n->chaincode, &n->prv, &n->pub);
+  hns_create_p2pkh_addr(gpub->hrp, n->pub.W, gpub->addr);
+
   if (gpub->confirm) {
-    UX_DISPLAY(ledger_ui_approve_public_key, NULL);
+    if (gpub->gen_addr) {
+      memmove(gpub->confirm_str, "Confirm address:", 17);
+      os_memmove(gpub->full_str, gpub->addr, sizeof(gpub->addr));
+      gpub->full_str[sizeof(gpub->addr)] = '\0';
+      gpub->full_str_len = 42;
+    } else {
+      memmove(gpub->confirm_str, "Confirm public key:", 20);
+      hns_bin2hex(gpub->full_str, n->pub.W, 33);
+      gpub->full_str[66] = '\0';
+      gpub->full_str_len = 66;
+    }
+
+    os_memmove(gpub->part_str, gpub->full_str, 12);
+    gpub->part_str[12] = '\0';
+    gpub->full_str_pos = 0;
+
+    UX_DISPLAY(ledger_ui_compare_public_key, ledger_ui_compare_public_key_prepro);
     *flags |= IO_ASYNCH_REPLY;
     return 0;
   }
-
-  ledger_ecdsa_derive(n->path, n->depth, n->chaincode, &n->prv, &n->pub);
-  hns_create_p2pkh_addr(gpub->hrp, n->pub.W, gpub->addr);
 
   len  = write_varbytes(&out, n->pub.W, 33);
   len += write_varbytes(&out, gpub->addr, sizeof(gpub->addr));

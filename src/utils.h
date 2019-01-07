@@ -51,11 +51,12 @@ typedef struct hns_get_public_key_ctx_s {
   bool confirm;
   bool gen_addr;
   char hrp[2];
-  uint8_t pos;
-  uint8_t confirm_str[21];
-  uint8_t part_str[13];
-  uint8_t full_str[67];
   uint8_t addr[42];
+  uint8_t part_str[13];
+  uint8_t confirm_str[20];
+  uint8_t full_str[67];
+  uint8_t full_str_len;
+  uint8_t full_str_pos;
   hns_bip32_node_t n;
 } hns_get_public_key_ctx_t;
 

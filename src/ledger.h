@@ -26,11 +26,14 @@
    (char *)text,0,0,0,NULL,NULL,NULL}
 #endif
 
+
 typedef cx_ecfp_private_key_t ledger_private_key_t;
 typedef cx_ecfp_public_key_t ledger_public_key_t;
 
 extern uint16_t g_ledger_ui_step;
 extern uint16_t g_ledger_ui_step_count;
+extern uint16_t g_ledger_apdu_exchange_buffer_size;
+extern uint8_t * g_ledger_apdu_exchange_buffer;
 
 uint8_t *
 ledger_init(void);
@@ -81,8 +84,8 @@ ledger_apdu_exchange(uint8_t flags, uint16_t len) {
 
 static inline uint16_t
 ledger_apdu_exchange_with_sw(uint8_t flags, uint16_t len, uint16_t sw) {
-  G_io_apdu_buffer[len++] = sw >> 8;
-  G_io_apdu_buffer[len++] = sw & 0xFF;
+  g_ledger_apdu_exchange_buffer[len++] = sw >> 8;
+  g_ledger_apdu_exchange_buffer[len++] = sw & 0xFF;
   return io_exchange(CHANNEL_APDU | flags, len);
 }
 

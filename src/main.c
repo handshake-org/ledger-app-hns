@@ -73,6 +73,7 @@ hns_loop() {
         THROW(EXCEPTION_IO_RESET);
       }
       CATCH_OTHER(e) {
+        memset(buf, 0, g_ledger_apdu_exchange_buffer_size);
         halted = 1;
         buf[0] = 0x6F;
         buf[1] = e;

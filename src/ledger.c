@@ -10,16 +10,20 @@
  * static inline unsigned int ledger_pin_validated(void);
  */
 
+uint8_t * g_ledger_apdu_exchange_buffer;
+uint16_t g_ledger_apdu_exchange_buffer_size;
 uint16_t g_ledger_ui_step;
 uint16_t g_ledger_ui_step_count;
 
 uint8_t *
 ledger_init(void) {
   io_seproxyhal_init();
-  os_memset(G_io_apdu_buffer, 0, sizeof(G_io_apdu_buffer));
   USB_power(false);
   USB_power(true);
   ledger_ui_init();
+  g_ledger_apdu_exchange_buffer = G_io_apdu_buffer;
+  g_ledger_apdu_exchange_buffer_size = sizeof(G_io_apdu_buffer);
+  os_memset(G_io_apdu_buffer, 0, g_ledger_apdu_exchange_buffer_size);
   return G_io_apdu_buffer;
 }
 
