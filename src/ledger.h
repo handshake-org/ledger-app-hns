@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include "os.h"
 #include "os_io_seproxyhal.h"
+#include "utils.h"
 
 #if defined(TARGET_NANOS)
 
@@ -26,10 +27,6 @@
    (char *)text,0,0,0,NULL,NULL,NULL}
 #endif
 
-
-typedef cx_ecfp_private_key_t ledger_private_key_t;
-typedef cx_ecfp_public_key_t ledger_public_key_t;
-
 extern uint16_t g_ledger_ui_step;
 extern uint16_t g_ledger_ui_step_count;
 extern uint16_t g_ledger_apdu_exchange_buffer_size;
@@ -45,16 +42,10 @@ void
 ledger_ui_idle(void);
 
 void
-ledger_ecdsa_derive(
-  uint32_t *,
-  uint8_t,
-  uint8_t *,
-  ledger_private_key_t *,
-  ledger_public_key_t *
-);
+ledger_ecdsa_derive_xpub(uint32_t *, uint8_t, hns_xpub_t *);
 
 void
-ledger_ecdsa_sign(ledger_private_key_t *, uint8_t *, size_t, uint8_t *);
+ledger_ecdsa_sign(uint32_t *, uint8_t, uint8_t *, size_t, uint8_t *);
 
 static inline void
 ledger_boot(void) {

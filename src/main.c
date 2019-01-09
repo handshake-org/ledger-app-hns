@@ -31,7 +31,6 @@ hns_loop() {
 
     BEGIN_TRY {
       TRY {
-        sw  = HNS_SW_OK;
         uint8_t p1 = buf[HNS_OFFSET_P1];
         uint8_t p2 = buf[HNS_OFFSET_P2];
         uint8_t cla = buf[HNS_OFFSET_CLA];
@@ -50,6 +49,9 @@ hns_loop() {
           goto send_sw;
         }
 
+        flags = 0;
+        sw  = HNS_SW_OK;
+
         switch(ins) {
           case INS_FIRMWARE:
             len = hns_apdu_get_firmware_version(p1, p2, lc, in, &flags);
@@ -66,8 +68,10 @@ hns_loop() {
         }
 
       send_sw:
-        buf[len++] = sw >> 8;
-        buf[len++] = sw & 0xff;
+        if ((flags & IO_ASYNCH_REPLY) == 0x00) {
+          buf[len++] = sw >> 8;
+          buf[len++] = sw & 0xff;
+        }
       }
       CATCH(EXCEPTION_IO_RESET) {
         THROW(EXCEPTION_IO_RESET);

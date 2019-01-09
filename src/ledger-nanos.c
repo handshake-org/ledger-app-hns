@@ -2,8 +2,6 @@
 #include "ledger.h"
 #include "utils.h"
 
-static hns_get_public_key_ctx_t * gpub = &global.pub;
-
 #if defined(TARGET_NANOS)
 
 ux_menu_entry_t const menu_main[];

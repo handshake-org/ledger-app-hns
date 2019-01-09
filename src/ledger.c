@@ -10,6 +10,9 @@
  * static inline unsigned int ledger_pin_validated(void);
  */
 
+typedef cx_ecfp_private_key_t ledger_private_key_t;
+typedef cx_ecfp_public_key_t ledger_public_key_t;
+
 uint8_t * g_ledger_apdu_exchange_buffer;
 uint16_t g_ledger_apdu_exchange_buffer_size;
 uint16_t g_ledger_ui_step;
@@ -17,41 +20,57 @@ uint16_t g_ledger_ui_step_count;
 
 uint8_t *
 ledger_init(void) {
+  g_ledger_apdu_exchange_buffer = G_io_apdu_buffer;
+  g_ledger_apdu_exchange_buffer_size = sizeof(G_io_apdu_buffer);
+  os_memset(G_io_apdu_buffer, 0, g_ledger_apdu_exchange_buffer_size);
+
   io_seproxyhal_init();
   USB_power(false);
   USB_power(true);
   ledger_ui_init();
-  g_ledger_apdu_exchange_buffer = G_io_apdu_buffer;
-  g_ledger_apdu_exchange_buffer_size = sizeof(G_io_apdu_buffer);
-  os_memset(G_io_apdu_buffer, 0, g_ledger_apdu_exchange_buffer_size);
+
   return G_io_apdu_buffer;
 }
 
-void
-ledger_ecdsa_derive(
+typedef struct ledger_bip32_node_s {
+  uint8_t chaincode[32];
+  ledger_private_key_t prv;
+  ledger_public_key_t pub;
+} ledger_bip32_node_t;
+
+static void
+ledger_ecdsa_derive_node(
   uint32_t * path,
   uint8_t depth,
-  uint8_t * chaincode,
-  ledger_private_key_t * prv,
-  ledger_public_key_t * pub
+  ledger_bip32_node_t * n
 ) {
-  uint8_t master[32];
-  os_perso_derive_node_bip32(CX_CURVE_256K1, path, depth, master, chaincode);
-  cx_ecdsa_init_private_key(CX_CURVE_256K1, master, 32, prv);
-  cx_ecfp_generate_pair(CX_CURVE_256K1, pub, prv, true);
-  pub->W[0] = pub->W[64] & 1 ? 0x03 : 0x02;
+  uint8_t privkey[32];
+  os_perso_derive_node_bip32(CX_CURVE_256K1, path, depth, privkey, n->chaincode);
+  cx_ecdsa_init_private_key(CX_CURVE_256K1, privkey, 32, &n->prv);
+  cx_ecfp_generate_pair(CX_CURVE_256K1, &n->pub, &n->prv, true);
+  n->pub.W[0] = n->pub.W[64] & 1 ? 0x03 : 0x02;
+}
+
+void
+ledger_ecdsa_derive_xpub(uint32_t * path, uint8_t depth, hns_xpub_t * xpub) {
+  ledger_bip32_node_t n;
+  ledger_ecdsa_derive_node(path, depth, &n);
+  memmove(xpub->key, n.pub.W, sizeof(xpub->key));
+  memset(&n.prv, 0, sizeof(n.prv));
 }
 
 void
 ledger_ecdsa_sign(
-  cx_ecfp_private_key_t * priv,
+  uint32_t * path,
+  uint8_t depth,
   uint8_t * hash,
   size_t hash_len,
   uint8_t * sig
 ) {
-  unsigned int info = 0;
-  cx_ecdsa_sign(priv, CX_LAST | CX_RND_TRNG, CX_SHA256,
-    hash, hash_len, sig, &info);
+  ledger_bip32_node_t n;
+  ledger_ecdsa_derive_node(path, depth, &n);
+  cx_ecdsa_sign(&n.prv, CX_LAST | CX_RND_TRNG, CX_SHA256,
+    hash, hash_len, sig, NULL);
 }
 
 /**
