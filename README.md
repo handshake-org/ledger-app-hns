@@ -13,8 +13,8 @@ all code is your original work. `</legalese>`
 
 - Copyright (c) 2018, Boyma Fahnbulleh (MIT License).
 
-Parts of this software are based on [ledger-app-btc][btc] and
-[blue-app-nano][nano].
+Parts of this software are based on [ledger-app-btc][btc], [blue-app-nano][nano],
+[nanos-app-sia][sia] and [hnsd][hnsd].
 
 ### ledger-app-btc
 
@@ -24,7 +24,17 @@ Parts of this software are based on [ledger-app-btc][btc] and
 
 - Copyright (c) 2018, Mart Roosmaa (Apache License).
 
+### nanos-app-sia
+
+- Copyright (c) 2018, Nebulous Inc. (MIT License).
+
+### hnsd
+
+- Copyright (c) 2018, Christopher Jeffrey (MIT License).
+
 See LICENSE for more info.
 
 [btc]: https://github.com/ledgerhq/ledger-app-btc
 [nano]: https://github.com/roosmaa/blue-app-nano
+[sia]: https://gitlab.com/nebulouslabs/nanos-app-sia
+[hnsd]: https://github.com/handshake-org/hnsd
