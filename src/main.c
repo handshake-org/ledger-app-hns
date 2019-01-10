@@ -54,7 +54,7 @@ hns_loop() {
 
         switch(ins) {
           case INS_FIRMWARE:
-            len = hns_apdu_get_firmware_version(p1, p2, lc, in, &flags);
+            len = hns_apdu_get_app_version(p1, p2, lc, in, &flags);
             break;
           case INS_PUBKEY:
             len = hns_apdu_get_public_key(p1, p2, lc, in, out, &flags);

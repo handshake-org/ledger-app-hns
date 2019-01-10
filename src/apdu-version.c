@@ -2,7 +2,7 @@
 #include "ledger.h"
 
 volatile uint8_t
-hns_apdu_get_firmware_version(
+hns_apdu_get_app_version(
   uint8_t p1,
   uint8_t p2,
   uint8_t len,

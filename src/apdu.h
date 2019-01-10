@@ -31,7 +31,7 @@
 #define HNS_EX_INVALID_PARSER_STATE 24
 
 volatile uint8_t
-hns_apdu_get_firmware_version(
+hns_apdu_get_app_version(
   uint8_t,
   uint8_t,
   uint8_t,
@@ -40,7 +40,7 @@ hns_apdu_get_firmware_version(
 );
 
 volatile uint8_t
-hns_apdu_get_wallet_public_key(
+hns_apdu_get_public_key(
   uint8_t,
   uint8_t,
   uint8_t,
@@ -50,7 +50,7 @@ hns_apdu_get_wallet_public_key(
 );
 
 volatile uint8_t
-hns_apdu_tx_sign(
+hns_apdu_sign_tx(
   uint8_t,
   uint8_t,
   uint8_t,
