@@ -115,7 +115,7 @@ i.e. network to use when generating the address.
 | address           | var |
 | chaincode         | 32  |
 
-### SIGN TX
+### GET SIGNATURE
 #### Description
 
 This command handles the entire signature creation process. It

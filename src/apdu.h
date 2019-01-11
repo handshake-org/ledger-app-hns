@@ -50,7 +50,7 @@ hns_apdu_get_public_key(
 );
 
 volatile uint8_t
-hns_apdu_sign_tx(
+hns_apdu_get_signature(
   uint8_t,
   uint8_t,
   uint8_t,

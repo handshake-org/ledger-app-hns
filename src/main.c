@@ -60,7 +60,7 @@ hns_loop() {
             len = hns_apdu_get_public_key(p1, p2, lc, in, out, &flags);
             break;
           case INS_SIGN:
-            len = hns_apdu_sign_tx(p1, p2, lc, in, out, &flags);
+            len = hns_apdu_get_signature(p1, p2, lc, in, out, &flags);
             break;
           default:
             sw = HNS_SW_INS_NOT_SUPPORTED;

@@ -21,14 +21,14 @@ static hns_apdu_sign_ctx_t * ctx = &global.sign;
 static blake2b_ctx sighash;
 static blake2b_ctx txid;
 
-static const bagl_element_t ledger_ui_approve_txid[] = {
+static const bagl_element_t approve_txid[] = {
   LEDGER_UI_BACKGROUND(),
   LEDGER_UI_ICON_LEFT(0x00, BAGL_GLYPH_ICON_CROSS),
   LEDGER_UI_ICON_RIGHT(0x00, BAGL_GLYPH_ICON_CHECK),
   LEDGER_UI_TEXT(0x00, 0, 12, 128, "Correct match?")
 };
 
-static const bagl_element_t ledger_ui_compare_txid[] = {
+static const bagl_element_t compare_txid[] = {
   LEDGER_UI_BACKGROUND(),
   LEDGER_UI_ICON_LEFT(0x01, BAGL_GLYPH_ICON_LEFT),
   LEDGER_UI_ICON_RIGHT(0x02, BAGL_GLYPH_ICON_RIGHT),
@@ -37,7 +37,7 @@ static const bagl_element_t ledger_ui_compare_txid[] = {
 };
 
 static unsigned int
-ledger_ui_approve_txid_button(unsigned int mask, unsigned int ctr) {
+approve_txid_button(unsigned int mask, unsigned int ctr) {
   switch (mask) {
     case BUTTON_EVT_RELEASED | BUTTON_LEFT: {
       memset(g_ledger_apdu_exchange_buffer, 0, g_ledger_apdu_exchange_buffer_size);
@@ -59,7 +59,7 @@ ledger_ui_approve_txid_button(unsigned int mask, unsigned int ctr) {
 }
 
 static unsigned int
-ledger_ui_compare_txid_button(unsigned int mask, unsigned int ctr) {
+compare_txid_button(unsigned int mask, unsigned int ctr) {
   switch (mask) {
     case BUTTON_LEFT:
     case BUTTON_EVT_FAST | BUTTON_LEFT:
@@ -80,7 +80,7 @@ ledger_ui_compare_txid_button(unsigned int mask, unsigned int ctr) {
       break;
 
     case BUTTON_EVT_RELEASED | BUTTON_LEFT | BUTTON_RIGHT:
-      UX_DISPLAY(ledger_ui_approve_txid, NULL);
+      UX_DISPLAY(approve_txid, NULL);
       break;
   }
 
@@ -88,7 +88,7 @@ ledger_ui_compare_txid_button(unsigned int mask, unsigned int ctr) {
 }
 
 static const bagl_element_t *
-ledger_ui_compare_txid_prepro(const bagl_element_t * e) {
+compare_txid_prepro(const bagl_element_t * e) {
   switch (e->component.userid) {
     case 1:
       return (ctx->full_str_pos == 0) ? NULL : e;
@@ -102,7 +102,7 @@ ledger_ui_compare_txid_prepro(const bagl_element_t * e) {
 }
 
 static inline uint8_t
-parse_tx(uint8_t * len, volatile uint8_t * buf, bool init) {
+parse(uint8_t * len, volatile uint8_t * buf, bool init) {
   static uint8_t i;
   static uint8_t next_item;
   static uint8_t outs_size;
@@ -264,7 +264,7 @@ parse_tx(uint8_t * len, volatile uint8_t * buf, bool init) {
 static const uint8_t SIGHASH_ALL[4] = {0x01, 0x00, 0x00, 0x00};
 
 static inline uint8_t
-sign_tx(
+sign(
   uint8_t * len,
   volatile uint8_t * buf,
   volatile uint8_t * sig,
@@ -321,7 +321,7 @@ sign_tx(
     ctx->part_str[12] = '\0';
 
     memmove(ctx->sig, sig, sig[1] + 2);
-    UX_DISPLAY(ledger_ui_compare_txid, ledger_ui_compare_txid_prepro);
+    UX_DISPLAY(compare_txid, compare_txid_prepro);
     *flags |= IO_ASYNCH_REPLY;
     return 0;
   }
@@ -330,7 +330,7 @@ sign_tx(
 }
 
 volatile uint8_t
-hns_apdu_sign_tx(
+hns_apdu_get_signature(
   uint8_t init,
   uint8_t func,
   uint8_t len,
@@ -353,11 +353,11 @@ hns_apdu_sign_tx(
 
   switch(func) {
     case P2_PARSE:
-      len = parse_tx(&len, in, init);
+      len = parse(&len, in, init);
       break;
 
     case P2_SIGN:
-      len = sign_tx(&len, in, out, flags, init);
+      len = sign(&len, in, out, flags, init);
       break;
 
     default:
