@@ -13,9 +13,7 @@
 #define PREVOUT 0x00
 #define VALUE 0x01
 #define SEQUENCE 0x02
-#define SCRIPT_LEN 0x03
-#define SCRIPT 0x04
-#define OUTPUTS 0x05
+#define OUTPUTS 0x03
 
 static hns_apdu_sign_ctx_t * ctx = &global.sign;
 static blake2b_ctx sighash;
@@ -178,20 +176,6 @@ parse(uint8_t * len, volatile uint8_t * buf, bool init) {
 
         blake2b_update(&txid, in->seq, sizeof(in->seq));
         next_item++;
-      }
-
-      case SCRIPT_LEN: {
-        if (!read_u8(&buf, len, &in->script_len))
-          break;
-
-        next_item++;
-      }
-
-      case SCRIPT: {
-        if (!read_bytes(&buf, len, in->script, in->script_len))
-          break;
-
-        next_item++;
 
         if (++i < ctx->ins_len) {
           in = &ctx->ins[i];
@@ -275,6 +259,8 @@ sign(
   uint8_t type[4];
   uint8_t depth;
   uint32_t path[HNS_MAX_PATH];
+  uint8_t script[HNS_MAX_SCRIPT];
+  hns_varint_t script_len;
 
   if (!ctx->parsed)
     THROW(HNS_EX_INVALID_PARSER_STATE);
@@ -291,6 +277,9 @@ sign(
   if (!read_bytes(&buf, len, type, sizeof(type)))
     THROW(INVALID_PARAMETER);
 
+  if (!read_varbytes(&buf, len, script, sizeof(script), &script_len))
+    THROW(INVALID_PARAMETER);
+
   if (memcmp(type, SIGHASH_ALL, sizeof(type)))
     THROW(INVALID_PARAMETER);
 
@@ -301,8 +290,8 @@ sign(
   blake2b_update(&sighash, ctx->prevs, sizeof(ctx->prevs));
   blake2b_update(&sighash, ctx->seqs, sizeof(ctx->seqs));
   blake2b_update(&sighash, in.prev, sizeof(in.prev));
-  blake2b_update(&sighash, &in.script_len, sizeof(in.script_len));
-  blake2b_update(&sighash, in.script, in.script_len);
+  blake2b_update(&sighash, &script_len, size_varint(script_len));
+  blake2b_update(&sighash, script, script_len);
   blake2b_update(&sighash, in.val, sizeof(in.val));
   blake2b_update(&sighash, in.seq, sizeof(in.seq));
   blake2b_update(&sighash, ctx->outs, sizeof(ctx->outs));

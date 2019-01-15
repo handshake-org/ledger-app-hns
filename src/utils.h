@@ -13,7 +13,7 @@
 #define HNS_MAX_INPUTS 10
 #define HNS_MAX_PATH 10
 #define HNS_MAX_PATH_LEN 4 * HNS_MAX_PATH + 1
-#define HNS_MAX_SCRIPT 25
+#define HNS_MAX_SCRIPT 33 * 9 + 3 // m of 9 multisig
 
 typedef uint32_t hns_varint_t;
 
@@ -36,8 +36,6 @@ typedef struct hns_input_s {
   uint8_t prev[36];
   uint8_t val[8];
   uint8_t seq[4];
-  uint8_t script[HNS_MAX_SCRIPT];
-  uint8_t script_len;
 } hns_input_t;
 
 typedef struct hns_apdu_sign_ctx_t {
@@ -293,7 +291,7 @@ read_bip32_path(
   uint8_t * depth,
   uint32_t * path
 ) {
-  if (*len < 1 || *len > HNS_MAX_PATH_LEN)
+  if (*len < 1)
     return false;
 
   if (!read_u8(buf, len, depth))
