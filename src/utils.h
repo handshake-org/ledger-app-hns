@@ -38,7 +38,7 @@ typedef struct hns_input_s {
   uint8_t seq[4];
 } hns_input_t;
 
-typedef struct hns_apdu_sign_ctx_t {
+typedef struct hns_apdu_signature_ctx_t {
   bool parsed;
   hns_input_t ins[HNS_MAX_INPUTS];
   uint8_t ins_len;
@@ -54,11 +54,11 @@ typedef struct hns_apdu_sign_ctx_t {
   uint8_t full_str[65];
   uint8_t full_str_len;
   uint8_t full_str_pos;
-} hns_apdu_sign_ctx_t;
+} hns_apdu_signature_ctx_t;
 
 typedef union {
   hns_apdu_pubkey_ctx_t pubkey;
-  hns_apdu_sign_ctx_t sign;
+  hns_apdu_signature_ctx_t signature;
 } global_ctx_t;
 
 extern global_ctx_t global;

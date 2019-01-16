@@ -15,7 +15,7 @@
 #define SEQUENCE 0x02
 #define OUTPUTS 0x03
 
-static hns_apdu_sign_ctx_t * ctx = &global.sign;
+static hns_apdu_signature_ctx_t * ctx = &global.signature;
 static blake2b_ctx sighash;
 static blake2b_ctx txid;
 
@@ -31,7 +31,7 @@ static const bagl_element_t compare_txid[] = {
   LEDGER_UI_ICON_LEFT(0x01, BAGL_GLYPH_ICON_LEFT),
   LEDGER_UI_ICON_RIGHT(0x02, BAGL_GLYPH_ICON_RIGHT),
   LEDGER_UI_TEXT(0x00, 0, 12, 128, "Confirm txid:"),
-  LEDGER_UI_TEXT(0x00, 0, 26, 128, global.sign.part_str)
+  LEDGER_UI_TEXT(0x00, 0, 26, 128, global.signature.part_str)
 };
 
 static unsigned int
@@ -114,7 +114,7 @@ parse(uint8_t * len, volatile uint8_t * buf, bool init) {
     store_len = 0;
 
     memset(store, 0, sizeof(store));
-    memset(ctx, 0, sizeof(hns_apdu_sign_ctx_t));
+    memset(ctx, 0, sizeof(hns_apdu_signature_ctx_t));
 
     if (!read_bytes(&buf, len, ctx->ver, sizeof(ctx->ver)))
       THROW(INVALID_PARAMETER);
