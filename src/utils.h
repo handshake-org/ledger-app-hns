@@ -10,8 +10,8 @@
 #include "segwit-addr.h"
 
 #define HNS_APP_NAME "Handshake"
-#define HNS_MAX_INPUTS 10
-#define HNS_MAX_PATH 10
+#define HNS_MAX_INPUTS 20
+#define HNS_MAX_PATH 5
 #define HNS_MAX_PATH_LEN 4 * HNS_MAX_PATH + 1
 #define HNS_MAX_SCRIPT 33 * 9 + 3 // m of 9 multisig
 
