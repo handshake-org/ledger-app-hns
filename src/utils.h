@@ -10,10 +10,9 @@
 #include "segwit-addr.h"
 
 #define HNS_APP_NAME "Handshake"
-#define HNS_MAX_INPUTS 20
+#define HNS_MAX_INPUTS 10
 #define HNS_MAX_PATH 5
 #define HNS_MAX_PATH_LEN 4 * HNS_MAX_PATH + 1
-#define HNS_MAX_SCRIPT 33 * 9 + 3 // m of 9 multisig
 
 typedef uint32_t hns_varint_t;
 
@@ -39,7 +38,8 @@ typedef struct hns_input_s {
 } hns_input_t;
 
 typedef struct hns_apdu_signature_ctx_t {
-  bool parsed;
+  bool sign_ready;
+  bool skip_input;
   hns_input_t ins[HNS_MAX_INPUTS];
   uint8_t ins_len;
   uint8_t outs_len;
@@ -163,7 +163,7 @@ read_u32(uint8_t ** buf, uint8_t * len, uint32_t * u32, bool be) {
 
 static inline bool
 read_varint(uint8_t ** buf, uint8_t * len, hns_varint_t * varint) {
-  uint8_t prefix = *(buf)[0];
+  uint8_t prefix = (*buf)[0];
   *buf += 1;
   *len -= 1;
 
@@ -174,7 +174,7 @@ read_varint(uint8_t ** buf, uint8_t * len, hns_varint_t * varint) {
     case 0xfe: {
       uint32_t v;
 
-      if (!read_u32(buf, len, &v, true)) {
+      if (!read_u32(buf, len, &v, false)) {
         *buf -= 1;
         *len += 1;
         return false;
@@ -193,7 +193,7 @@ read_varint(uint8_t ** buf, uint8_t * len, hns_varint_t * varint) {
     case 0xfd: {
       uint16_t v;
 
-      if (!read_u16(buf, len, &v, true)) {
+      if (!read_u16(buf, len, &v, false)) {
         *buf -= 1;
         *len += 1;
         return false;
@@ -213,6 +213,19 @@ read_varint(uint8_t ** buf, uint8_t * len, hns_varint_t * varint) {
       *varint = prefix;
       break;
   }
+
+  return true;
+}
+
+static inline bool
+peek_varint(uint8_t ** buf, uint8_t * len, hns_varint_t * varint) {
+  if (!read_varint(buf, len, varint))
+    return false;
+
+  uint8_t sz = size_varint(*varint);
+
+  *buf -= sz;
+  *len += sz;
 
   return true;
 }
@@ -321,8 +334,8 @@ write_u8(uint8_t ** buf, uint8_t u8) {
   if (buf == NULL || *buf == NULL)
     return 0;
 
-  *(buf)[0] = u8;
-  *(buf) += 1;
+  (*buf)[0] = u8;
+  *buf += 1;
 
   return 1;
 }
@@ -333,8 +346,8 @@ write_u16(uint8_t ** buf, uint16_t u16, bool be) {
     return 0;
 
   if (be) {
-    *(buf)[0] = (uint8_t)u16;
-    *(buf)[1] = (uint8_t)(u16 >> 8);
+    (*buf)[0] = (uint8_t)u16;
+    (*buf)[1] = (uint8_t)(u16 >> 8);
   } else {
     memmove(*buf, &u16, 2);
   }
@@ -350,10 +363,10 @@ write_u32(uint8_t ** buf, uint32_t u32, bool be) {
     return 0;
 
   if (be) {
-    *(buf)[0] = (uint8_t)u32;
-    *(buf)[1] = (uint8_t)(u32 >> 8);
-    *(buf)[2] = (uint8_t)(u32 >> 16);
-    *(buf)[3] = (uint8_t)(u32 >> 24);
+    (*buf)[0] = (uint8_t)u32;
+    (*buf)[1] = (uint8_t)(u32 >> 8);
+    (*buf)[2] = (uint8_t)(u32 >> 16);
+    (*buf)[3] = (uint8_t)(u32 >> 24);
   } else {
     memmove(*buf, &u32, 4);
   }
@@ -386,13 +399,13 @@ write_varint(uint8_t ** buf, hns_varint_t val) {
 
   if (val <= 0xffff) {
     write_u8(buf, 0xfd);
-    write_u16(buf, (uint16_t)val, true);
+    write_u16(buf, (uint16_t)val, false);
     return 3;
   }
 
   if (val <= 0xffffffff) {
     write_u8(buf, 0xfe);
-    write_u32(buf, (uint32_t)val, true);
+    write_u32(buf, (uint32_t)val, false);
     return 5;
   }
 

@@ -218,7 +218,7 @@ parse(uint8_t * len, volatile uint8_t * buf, bool init) {
         blake2b_update(&txid, ctx->locktime, sizeof(ctx->locktime));
         blake2b_final(&txid, ctx->txid);
         blake2b_final(&sighash, ctx->outs);
-        ctx->parsed = true;
+        ctx->sign_ready = true;
         next_item++;
         break;
       }
@@ -255,63 +255,84 @@ sign(
   volatile uint8_t * flags,
   bool confirm
 ) {
-  uint8_t index;
-  uint8_t type[4];
-  uint8_t depth;
-  uint32_t path[HNS_MAX_PATH];
-  uint8_t script[HNS_MAX_SCRIPT];
-  hns_varint_t script_len;
+  static uint8_t i = 0;
+  static uint8_t type[4]  = {0};
+  static uint8_t depth = 0;
+  static uint32_t path[HNS_MAX_PATH] = {0};
+  static hns_varint_t script_ctr = 0;
 
-  if (!ctx->parsed)
+  if (!ctx->skip_input) {
+    if (!ctx->sign_ready)
+      THROW(HNS_EX_INVALID_PARSER_STATE);
+
+    if (!read_bip32_path(&buf, len, &depth, path))
+      THROW(INVALID_PARAMETER);
+
+    if (!read_u8(&buf, len, &i))
+      THROW(INVALID_PARAMETER);
+
+    if (i > ctx->ins_len)
+      THROW(INVALID_PARAMETER);
+
+    if (!read_bytes(&buf, len, type, sizeof(type)))
+      THROW(INVALID_PARAMETER);
+
+    if (memcmp(type, SIGHASH_ALL, sizeof(type)))
+      THROW(INVALID_PARAMETER);
+
+    if (!peek_varint(&buf, len, &script_ctr))
+      THROW(INVALID_PARAMETER);
+
+    uint8_t script_len[5] = {0};
+    uint8_t sz = size_varint(script_ctr);
+
+    if (!read_bytes(&buf, len, script_len, sz))
+      THROW(INVALID_PARAMETER);
+
+    blake2b_init(&sighash, 32, NULL, 0);
+    blake2b_update(&sighash, ctx->ver, sizeof(ctx->ver));
+    blake2b_update(&sighash, ctx->prevs, sizeof(ctx->prevs));
+    blake2b_update(&sighash, ctx->seqs, sizeof(ctx->seqs));
+    blake2b_update(&sighash, ctx->ins[i].prev, sizeof(ctx->ins[i].prev));
+    blake2b_update(&sighash, script_len, sz);
+
+    ctx->skip_input = true;
+  }
+
+  script_ctr -= *len;
+
+  blake2b_update(&sighash, buf, *len);
+
+  if (script_ctr < 0)
     THROW(HNS_EX_INVALID_PARSER_STATE);
 
-  if (!read_bip32_path(&buf, len, &depth, path))
-    THROW(INVALID_PARAMETER);
+  if (script_ctr > 0)
+    return 0;
 
-  if (!read_u8(&buf, len, &index))
-    THROW(INVALID_PARAMETER);
-
-  if (index > ctx->ins_len)
-    THROW(INVALID_PARAMETER);
-
-  if (!read_bytes(&buf, len, type, sizeof(type)))
-    THROW(INVALID_PARAMETER);
-
-  if (!read_varbytes(&buf, len, script, sizeof(script), &script_len))
-    THROW(INVALID_PARAMETER);
-
-  if (memcmp(type, SIGHASH_ALL, sizeof(type)))
-    THROW(INVALID_PARAMETER);
+  ctx->skip_input = false;
 
   uint8_t digest[32];
-  hns_input_t in = ctx->ins[index];
-  blake2b_init(&sighash, 32, NULL, 0);
-  blake2b_update(&sighash, ctx->ver, sizeof(ctx->ver));
-  blake2b_update(&sighash, ctx->prevs, sizeof(ctx->prevs));
-  blake2b_update(&sighash, ctx->seqs, sizeof(ctx->seqs));
-  blake2b_update(&sighash, in.prev, sizeof(in.prev));
-  blake2b_update(&sighash, &script_len, size_varint(script_len));
-  blake2b_update(&sighash, script, script_len);
-  blake2b_update(&sighash, in.val, sizeof(in.val));
-  blake2b_update(&sighash, in.seq, sizeof(in.seq));
+
+  blake2b_update(&sighash, ctx->ins[i].val, sizeof(ctx->ins[i].val));
+  blake2b_update(&sighash, ctx->ins[i].seq, sizeof(ctx->ins[i].seq));
   blake2b_update(&sighash, ctx->outs, sizeof(ctx->outs));
   blake2b_update(&sighash, ctx->locktime, sizeof(ctx->locktime));
   blake2b_update(&sighash, type, sizeof(type));
   blake2b_final(&sighash, digest);
+
   ledger_ecdsa_sign(path, depth, digest, sizeof(digest), sig);
 
   if (confirm) {
     hns_bin2hex(ctx->full_str, ctx->txid, sizeof(ctx->txid));
+    memmove(ctx->part_str, ctx->full_str, 12);
+    memmove(ctx->sig, sig, sig[1] + 2);
     ctx->full_str_pos = 0;
     ctx->full_str_len = 64;
     ctx->full_str[ctx->full_str_len] = '\0';
-
-    memmove(ctx->part_str, ctx->full_str, 12);
     ctx->part_str[12] = '\0';
-
-    memmove(ctx->sig, sig, sig[1] + 2);
     UX_DISPLAY(compare_txid, compare_txid_prepro);
     *flags |= IO_ASYNCH_REPLY;
+
     return 0;
   }
 
