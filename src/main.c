@@ -20,14 +20,10 @@ hns_loop() {
   volatile uint8_t * buf = ledger_init();
   volatile uint8_t len = 0;
   volatile uint8_t flags = 0;
-  volatile uint8_t halted = 0;
   volatile uint16_t sw;
 
   for (;;) {
     len = ledger_apdu_exchange(flags, len);
-
-    if(halted)
-      break;
 
     BEGIN_TRY {
       TRY {
@@ -78,7 +74,6 @@ hns_loop() {
       }
       CATCH_OTHER(e) {
         memset(buf, 0, g_ledger_apdu_exchange_buffer_size);
-        halted = 1;
         buf[0] = 0x6F;
         buf[1] = e;
         len = 2;
