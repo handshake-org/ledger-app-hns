@@ -84,7 +84,7 @@ The second instruction param (P2) controls the network used to generate the addr
 | ----- | ----- | ---- | ----- | --- |
 | 0xe0  | 0x42  | *var | **var | var |
 
-* P1:
+\* P1:
 - 0x00 = No confimation
 - 0x01 = Public key confirmation
 - 0x03 = Address confirmation
@@ -140,7 +140,7 @@ confirmation of the calculated txid.
 | ----- | ----- | ---- | ----- | --- |
 | 0xe0  | 0x44  | *var | 0x00  | var |
 
-* P1:
+\* P1:
 - 0x01 = Initial message
 - 0x00 = Following message
 
@@ -158,7 +158,7 @@ confirmation of the calculated txid.
 | *inputs       | var |
 | **outputs     | var |
 
-* Input serialization
+\* Input serialization
 
 | Field         | Len |
 | ------------- | --- |
@@ -203,7 +203,7 @@ None
 | ----- | ---- | ---- | ---- | --- |
 | 0xe0  | 0x44 | *var | 0x01 | var |
 
-* P1:
+\* P1:
 - 0x01 = Initial signature request (on-device txid confirmation required)
 - 0x00 = Additional signature request
 
@@ -215,7 +215,7 @@ None
 | input index         | 1   |
 | sighash type        | 4   |
 
-* See serialization format [above](#encoded-path)
+\* See serialization format [above](#encoded-path)
 
 ##### Output data
 
@@ -238,7 +238,7 @@ Parts of this software are based on [ledger-app-btc][btc], [blue-app-nano][nano]
 
 ### ledger-app-btc
 
-- Copyright (c) 2016-2018, Ledger (Apache License).
+- Copyright (c) 2016, Ledger (Apache License).
 
 ### blue-app-nano
 
