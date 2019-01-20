@@ -5,13 +5,12 @@
 #include "segwit-addr.h"
 #include "utils.h"
 
-#define P1_ADDRESS_NO_CONFIRM 0x00
-#define P1_PUBKEY_NO_CONFIRM 0x01
-#define P1_ADDRESS_CONFIRM 0x02
-#define P1_PUBKEY_CONFIRM 0x03
+#define P1_NO_CONFIRM 0x00
+#define P1_CONFIRM_PUBKEY 0x01
+#define P1_CONFIRM_ADDRESS 0x03
 
-#define PUBKEY_FLAG 0x01
-#define CONFIRM_FLAG 0x02
+#define CONFIRM_FLAG 0x01
+#define ADDRESS_FLAG 0x02
 
 #define P2_MAINNET 0x00
 #define P2_TESTNET 0x01
@@ -126,19 +125,18 @@ hns_apdu_get_public_key(
   volatile uint8_t *out,
   volatile uint8_t *flags
 ) {
-  char hrp[2];
-
   switch(p1) {
-    case P1_ADDRESS_CONFIRM:
-    case P1_ADDRESS_NO_CONFIRM:
-    case P1_PUBKEY_CONFIRM:
-    case P1_PUBKEY_NO_CONFIRM:
+    case P1_NO_CONFIRM:
+    case P1_CONFIRM_PUBKEY:
+    case P1_CONFIRM_ADDRESS:
       break;
 
     default:
       THROW(HNS_INCORRECT_P1);
       break;
   }
+
+  char hrp[2];
 
   switch(p2) {
     case P2_MAINNET:
@@ -185,20 +183,19 @@ hns_apdu_get_public_key(
     THROW(HNS_INCORRECT_WRITE_LEN);
 
   if (p1 & CONFIRM_FLAG) {
-    uint8_t * buffer = g_ledger_apdu_buffer;
-    memmove(ctx->store, buffer, len);
+    memmove(ctx->store, g_ledger_apdu_buffer, len);
     ctx->store_len = len;
 
-    if (p1 & PUBKEY_FLAG) {
-      memmove(ctx->confirm_str, "Confirm public key:", 20);
-      bin2hex(ctx->full_str, xpub.key, sizeof(xpub.key));
-      ctx->full_str[66] = '\0';
-      ctx->full_str_len = 66;
-    } else {
+    if (p1 & ADDRESS_FLAG) {
       memmove(ctx->confirm_str, "Confirm address:", 17);
       memmove(ctx->full_str, addr, 42);
       ctx->full_str[42] = '\0';
       ctx->full_str_len = 42;
+    } else {
+      memmove(ctx->confirm_str, "Confirm public key:", 20);
+      bin2hex(ctx->full_str, xpub.key, sizeof(xpub.key));
+      ctx->full_str[66] = '\0';
+      ctx->full_str_len = 66;
     }
 
     memmove(ctx->part_str, ctx->full_str, 12);

@@ -71,11 +71,11 @@ This command returns the extended public key and Bech32 encoded address for
 the given BIP 32 path.
 
 The first instruction param (P1) can be used to require on-device confirmation
-of the public key or address. The second lsb can be set to require on-device
-confirmation. The lsb controls which value to display.
+of the public key or address. The least significant bit can be set to require
+on-device confirmation. The second least significant bit controls which value
+to display.
 
-The second instruction param (P2) controls theSetting it displays the pubkey,
-i.e. network to use when generating the address.
+The second instruction param (P2) controls the network used to generate the address.
 
 #### Structure
 ##### Header
@@ -86,9 +86,8 @@ i.e. network to use when generating the address.
 
 * P1:
 - 0x00 = No confimation
-- 0x01 = No confimation
-- 0x02 = Address confirmation
-- 0x03 = Public key confirmation
+- 0x01 = Public key confirmation
+- 0x03 = Address confirmation
 
 ** P2:
 - 0x00 = mainnet
