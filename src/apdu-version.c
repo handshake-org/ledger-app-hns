@@ -6,7 +6,8 @@ hns_apdu_get_app_version(
   uint8_t p1,
   uint8_t p2,
   uint16_t len,
-  volatile uint8_t *buf,
+  volatile uint8_t *in,
+  volatile uint8_t *out,
   volatile uint8_t *flags
 ) {
   if(p1 != 0)
@@ -21,9 +22,9 @@ hns_apdu_get_app_version(
   if (!ledger_pin_validated())
     THROW(HNS_SECURITY_CONDITION_NOT_SATISFIED);
 
-  buf[0] = HNS_APP_MAJOR_VERSION;
-  buf[1] = HNS_APP_MINOR_VERSION;
-  buf[2] = HNS_APP_PATCH_VERSION;
+  out[0] = HNS_APP_MAJOR_VERSION;
+  out[1] = HNS_APP_MINOR_VERSION;
+  out[2] = HNS_APP_PATCH_VERSION;
 
   return 3;
 }

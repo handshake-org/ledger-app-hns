@@ -86,7 +86,8 @@ hns_apdu_get_app_version(
   uint8_t p1,
   uint8_t p2,
   uint16_t len,
-  volatile uint8_t *buf,
+  volatile uint8_t *in,
+  volatile uint8_t *out,
   volatile uint8_t *flags
 );
 
