@@ -19,6 +19,7 @@ static hns_apdu_signature_ctx_t *ctx = &global.signature;
 static blake2b_ctx hash;
 static blake2b_ctx txid;
 
+#if defined(TARGET_NANOS)
 static const bagl_element_t approve_txid[] = {
   LEDGER_UI_BACKGROUND(),
   LEDGER_UI_ICON_LEFT(0x00, BAGL_GLYPH_ICON_CROSS),
@@ -98,6 +99,7 @@ compare_txid_prepro(const bagl_element_t *e) {
       return e;
   }
 }
+#endif
 
 static inline uint16_t
 parse(uint16_t *len, volatile uint8_t *buf, bool init) {
@@ -322,6 +324,7 @@ sign(
 
   ledger_ecdsa_sign(path, depth, digest, sizeof(digest), sig);
 
+#if defined(TARGET_NANOS)
   if (confirm) {
     bin2hex(ctx->full_str, ctx->txid, sizeof(ctx->txid));
     memmove(ctx->part_str, ctx->full_str, 12);
@@ -335,6 +338,7 @@ sign(
 
     return 0;
   }
+#endif
 
   return sig[1] + 2;
 }

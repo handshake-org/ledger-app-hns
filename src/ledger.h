@@ -11,6 +11,11 @@
 
 #if defined(TARGET_NANOS)
 
+/**
+ * For more details on UI elements see:
+ * https://github.com/ledgerhq/nanos-secure-sdk
+ */
+
 #define LEDGER_UI_BACKGROUND() \
   {{BAGL_RECTANGLE,0,0,0,128,32,0,0,BAGL_FILL,0,0xFFFFFF,0,0}, \
    NULL,0,0,0,NULL,NULL,NULL}
@@ -39,6 +44,46 @@ extern uint16_t g_ledger_apdu_buffer_size;
 extern uint16_t g_ledger_ui_step;
 extern uint16_t g_ledger_ui_step_count;
 
+static inline void
+ledger_boot(void) {
+  os_boot();
+}
+
+static inline void
+ledger_reset(void) {
+  reset();
+}
+
+static inline void
+ledger_exit(unsigned int code) {
+  BEGIN_TRY_L(exit) {
+    TRY_L(exit) {
+      os_sched_exit(code);
+    }
+    FINALLY_L(exit);
+  }
+  END_TRY_L(exit);
+}
+
+static inline uint16_t
+ledger_apdu_exchange(
+  uint8_t flags,
+  uint16_t len,
+  uint16_t sw
+) {
+  if (sw) {
+    g_ledger_apdu_buffer[len++] = sw >> 8;
+    g_ledger_apdu_buffer[len++] = sw & 0xff;
+  }
+
+  return io_exchange(CHANNEL_APDU | flags, len);
+}
+
+static inline unsigned int
+ledger_pin_validated(void) {
+  return os_global_pin_is_validated();
+}
+
 uint8_t *
 ledger_init(void);
 
@@ -63,40 +108,4 @@ ledger_ecdsa_sign(
   size_t hash_len,
   uint8_t *sig
 );
-
-static inline void
-ledger_boot(void) {
-  os_boot();
-}
-
-static inline void
-ledger_reset(void) {
-  reset();
-}
-
-static inline void
-ledger_exit(unsigned int exit_code) {
-  BEGIN_TRY_L(exit) {
-    TRY_L(exit) {
-      os_sched_exit(exit_code);
-    }
-    FINALLY_L(exit);
-  }
-  END_TRY_L(exit);
-}
-
-static inline uint16_t
-ledger_apdu_exchange(uint8_t flags, uint16_t len, uint16_t sw) {
-  if (sw) {
-    g_ledger_apdu_buffer[len++] = sw >> 8;
-    g_ledger_apdu_buffer[len++] = sw & 0xff;
-  }
-
-  return io_exchange(CHANNEL_APDU | flags, len);
-}
-
-static inline unsigned int
-ledger_pin_validated(void) {
-  return os_global_pin_is_validated();
-}
 #endif

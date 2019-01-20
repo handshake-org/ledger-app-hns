@@ -19,6 +19,7 @@
 
 static hns_apdu_pubkey_ctx_t *ctx = &global.pubkey;
 
+#if defined(TARGET_NANOS)
 static const bagl_element_t approve_public_key[] = {
   LEDGER_UI_BACKGROUND(),
   LEDGER_UI_ICON_LEFT(0x00, BAGL_GLYPH_ICON_CROSS),
@@ -100,7 +101,7 @@ compare_public_key_prepro(const bagl_element_t *e) {
       return e;
   }
 }
-
+#endif
 
 static inline void
 create_p2pkh_addr(char *hrp, uint8_t *pub, uint8_t *out) {
@@ -182,6 +183,7 @@ hns_apdu_get_public_key(
   if (len != 109)
     THROW(HNS_INCORRECT_WRITE_LEN);
 
+#if defined(TARGET_NANOS)
   if (p1 & CONFIRM_FLAG) {
     memmove(ctx->store, g_ledger_apdu_buffer, len);
     ctx->store_len = len;
@@ -206,6 +208,7 @@ hns_apdu_get_public_key(
     *flags |= LEDGER_ASYNCH_REPLY;
     return 0;
   }
+#endif
 
   return len;
 }
