@@ -8,7 +8,7 @@
 #define HNS_COLOR_ALT  0xFFFFFF
 
 const bagl_element_t *
-ui_touch_exit(const bagl_element_t * e) {
+ui_touch_exit(const bagl_element_t *e) {
   ledger_exit(0);
   return NULL;
 }

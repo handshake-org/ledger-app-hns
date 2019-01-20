@@ -15,8 +15,8 @@
 #define SEQUENCE 0x02
 #define OUTPUTS 0x03
 
-static hns_apdu_signature_ctx_t * ctx = &global.signature;
-static blake2b_ctx sighash;
+static hns_apdu_signature_ctx_t *ctx = &global.signature;
+static blake2b_ctx hash;
 static blake2b_ctx txid;
 
 static const bagl_element_t approve_txid[] = {
@@ -38,16 +38,16 @@ static unsigned int
 approve_txid_button(unsigned int mask, unsigned int ctr) {
   switch (mask) {
     case BUTTON_EVT_RELEASED | BUTTON_LEFT: {
-      memset(g_ledger_apdu_exchange_buffer, 0, g_ledger_apdu_exchange_buffer_size);
-      ledger_apdu_exchange_with_sw(IO_RETURN_AFTER_TX, 0, HNS_SW_USER_REJECTED);
+      memset(g_ledger_apdu_buffer, 0, g_ledger_apdu_buffer_size);
+      ledger_apdu_exchange(LEDGER_RETURN_AFTER_TX, 0, HNS_USER_REJECTED);
       ledger_ui_idle();
       break;
     }
 
     case BUTTON_EVT_RELEASED | BUTTON_RIGHT: {
-      uint8_t len = ctx->sig[1] + 2;
-      memmove(g_ledger_apdu_exchange_buffer, ctx->sig, len);
-      ledger_apdu_exchange_with_sw(IO_RETURN_AFTER_TX, len, HNS_SW_OK);
+      uint16_t len = ctx->sig[1] + 2;
+      memmove(g_ledger_apdu_buffer, ctx->sig, len);
+      ledger_apdu_exchange(LEDGER_RETURN_AFTER_TX, len, HNS_OK);
       ledger_ui_idle();
       break;
     }
@@ -86,7 +86,7 @@ compare_txid_button(unsigned int mask, unsigned int ctr) {
 }
 
 static const bagl_element_t *
-compare_txid_prepro(const bagl_element_t * e) {
+compare_txid_prepro(const bagl_element_t *e) {
   switch (e->component.userid) {
     case 1:
       return (ctx->full_str_pos == 0) ? NULL : e;
@@ -99,8 +99,8 @@ compare_txid_prepro(const bagl_element_t * e) {
   }
 }
 
-static inline uint8_t
-parse(uint8_t * len, volatile uint8_t * buf, bool init) {
+static inline uint16_t
+parse(uint16_t *len, volatile uint8_t *buf, bool init) {
   static uint8_t i;
   static uint8_t next_item;
   static uint8_t outs_size;
@@ -117,33 +117,33 @@ parse(uint8_t * len, volatile uint8_t * buf, bool init) {
     memset(ctx, 0, sizeof(hns_apdu_signature_ctx_t));
 
     if (!read_bytes(&buf, len, ctx->ver, sizeof(ctx->ver)))
-      THROW(INVALID_PARAMETER);
+      THROW(HNS_CANNOT_READ_TX_VERSION);
 
     if (!read_bytes(&buf, len, ctx->locktime, sizeof(ctx->locktime)))
-      THROW(INVALID_PARAMETER);
+      THROW(HNS_CANNOT_READ_TX_LOCKTIME);
 
     if (!read_u8(&buf, len, &ctx->ins_len))
-      THROW(INVALID_PARAMETER);
+      THROW(HNS_CANNOT_READ_INPUTS_LEN);
 
     if (!read_u8(&buf, len, &ctx->outs_len))
-      THROW(INVALID_PARAMETER);
+      THROW(HNS_CANNOT_READ_OUTPUTS_LEN);
 
     if (!read_varint(&buf, len, &outs_size))
-      THROW(INVALID_PARAMETER);
+      THROW(HNS_CANNOT_READ_OUTPUTS_SIZE);
 
     blake2b_init(&txid, 32, NULL, 0);
     blake2b_update(&txid, ctx->ver, sizeof(ctx->ver));
     blake2b_update(&txid, &ctx->ins_len, sizeof(ctx->ins_len));
   }
 
-  hns_input_t * in = NULL;
+  hns_input_t *in = NULL;
 
   if (i < ctx->ins_len)
     in = &ctx->ins[i];
 
   if (in == NULL)
     if (next_item != OUTPUTS)
-      THROW(HNS_EX_INVALID_PARSER_STATE);
+      THROW(HNS_INCORRECT_PARSER_STATE);
 
   if (store_len > 0) {
     memmove(buf + store_len, buf, *len);
@@ -184,47 +184,47 @@ parse(uint8_t * len, volatile uint8_t * buf, bool init) {
           break;
         }
 
-        blake2b_init(&sighash, 32, NULL, 0);
+        blake2b_init(&hash, 32, NULL, 0);
 
         for (i = 0; i < ctx->ins_len; i++)
-          blake2b_update(&sighash, ctx->ins[i].prev, sizeof(ctx->ins[i].prev));
+          blake2b_update(&hash, ctx->ins[i].prev, sizeof(ctx->ins[i].prev));
 
-        blake2b_final(&sighash, ctx->prevs);
-        blake2b_init(&sighash, 32, NULL, 0);
+        blake2b_final(&hash, ctx->prevs);
+        blake2b_init(&hash, 32, NULL, 0);
 
         for (i = 0; i < ctx->ins_len; i++)
-          blake2b_update(&sighash, ctx->ins[i].seq, sizeof(ctx->ins[i].seq));
+          blake2b_update(&hash, ctx->ins[i].seq, sizeof(ctx->ins[i].seq));
 
-        blake2b_final(&sighash, ctx->seqs);
-        blake2b_init(&sighash, 32, NULL, 0);
+        blake2b_final(&hash, ctx->seqs);
+        blake2b_init(&hash, 32, NULL, 0);
         blake2b_update(&txid, &ctx->outs_len, sizeof(ctx->outs_len));
       }
 
       case OUTPUTS: {
         if (*len > 0) {
           blake2b_update(&txid, buf, *len);
-          blake2b_update(&sighash, buf, *len);
+          blake2b_update(&hash, buf, *len);
           outs_size -= *len;
           buf += *len;
           *len = 0;
         }
 
         if (outs_size < 0)
-          THROW(HNS_EX_INVALID_PARSER_STATE);
+          THROW(HNS_INCORRECT_PARSER_STATE);
 
         if (outs_size > 0)
           break;
 
         blake2b_update(&txid, ctx->locktime, sizeof(ctx->locktime));
         blake2b_final(&txid, ctx->txid);
-        blake2b_final(&sighash, ctx->outs);
+        blake2b_final(&hash, ctx->outs);
         ctx->sign_ready = true;
         next_item++;
         break;
       }
 
       default:
-        THROW(HNS_EX_INVALID_PARSER_STATE);
+        THROW(HNS_INCORRECT_PARSER_STATE);
         break;
     }
 
@@ -232,7 +232,7 @@ parse(uint8_t * len, volatile uint8_t * buf, bool init) {
       continue;
 
     if (*len < 0)
-      THROW(HNS_EX_INVALID_PARSER_STATE);
+      THROW(HNS_INCORRECT_PARSER_STATE);
 
     if (*len > 0)
       memmove(store, buf, *len);
@@ -249,10 +249,10 @@ static const uint8_t SIGHASH_ALL[4] = {0x01, 0x00, 0x00, 0x00};
 
 static inline uint8_t
 sign(
-  uint8_t * len,
-  volatile uint8_t * buf,
-  volatile uint8_t * sig,
-  volatile uint8_t * flags,
+  uint16_t *len,
+  volatile uint8_t *buf,
+  volatile uint8_t *sig,
+  volatile uint8_t *flags,
   bool confirm
 ) {
   static uint8_t i = 0;
@@ -263,48 +263,48 @@ sign(
 
   if (!ctx->skip_input) {
     if (!ctx->sign_ready)
-      THROW(HNS_EX_INVALID_PARSER_STATE);
+      THROW(HNS_INCORRECT_PARSER_STATE);
 
     if (!read_bip32_path(&buf, len, &depth, path))
-      THROW(INVALID_PARAMETER);
+      THROW(HNS_CANNOT_READ_BIP32_PATH);
 
     if (!read_u8(&buf, len, &i))
-      THROW(INVALID_PARAMETER);
+      THROW(HNS_CANNOT_READ_INPUT_INDEX);
 
     if (i > ctx->ins_len)
-      THROW(INVALID_PARAMETER);
+      THROW(HNS_INCORRECT_INPUT_INDEX);
 
     if (!read_bytes(&buf, len, type, sizeof(type)))
-      THROW(INVALID_PARAMETER);
+      THROW(HNS_CANNOT_READ_SIGHASH_TYPE);
 
     if (memcmp(type, SIGHASH_ALL, sizeof(type)))
-      THROW(INVALID_PARAMETER);
+      THROW(HNS_INCORRECT_SIGHASH_TYPE);
 
     if (!peek_varint(&buf, len, &script_ctr))
-      THROW(INVALID_PARAMETER);
+      THROW(HNS_CANNOT_PEEK_SCRIPT_LEN);
 
     uint8_t script_len[5] = {0};
     uint8_t sz = size_varint(script_ctr);
 
     if (!read_bytes(&buf, len, script_len, sz))
-      THROW(INVALID_PARAMETER);
+      THROW(HNS_CANNOT_READ_SCRIPT_LEN);
 
-    blake2b_init(&sighash, 32, NULL, 0);
-    blake2b_update(&sighash, ctx->ver, sizeof(ctx->ver));
-    blake2b_update(&sighash, ctx->prevs, sizeof(ctx->prevs));
-    blake2b_update(&sighash, ctx->seqs, sizeof(ctx->seqs));
-    blake2b_update(&sighash, ctx->ins[i].prev, sizeof(ctx->ins[i].prev));
-    blake2b_update(&sighash, script_len, sz);
+    blake2b_init(&hash, 32, NULL, 0);
+    blake2b_update(&hash, ctx->ver, sizeof(ctx->ver));
+    blake2b_update(&hash, ctx->prevs, sizeof(ctx->prevs));
+    blake2b_update(&hash, ctx->seqs, sizeof(ctx->seqs));
+    blake2b_update(&hash, ctx->ins[i].prev, sizeof(ctx->ins[i].prev));
+    blake2b_update(&hash, script_len, sz);
 
     ctx->skip_input = true;
   }
 
   script_ctr -= *len;
 
-  blake2b_update(&sighash, buf, *len);
+  blake2b_update(&hash, buf, *len);
 
   if (script_ctr < 0)
-    THROW(HNS_EX_INVALID_PARSER_STATE);
+    THROW(HNS_INCORRECT_PARSER_STATE);
 
   if (script_ctr > 0)
     return 0;
@@ -313,17 +313,17 @@ sign(
 
   uint8_t digest[32];
 
-  blake2b_update(&sighash, ctx->ins[i].val, sizeof(ctx->ins[i].val));
-  blake2b_update(&sighash, ctx->ins[i].seq, sizeof(ctx->ins[i].seq));
-  blake2b_update(&sighash, ctx->outs, sizeof(ctx->outs));
-  blake2b_update(&sighash, ctx->locktime, sizeof(ctx->locktime));
-  blake2b_update(&sighash, type, sizeof(type));
-  blake2b_final(&sighash, digest);
+  blake2b_update(&hash, ctx->ins[i].val, sizeof(ctx->ins[i].val));
+  blake2b_update(&hash, ctx->ins[i].seq, sizeof(ctx->ins[i].seq));
+  blake2b_update(&hash, ctx->outs, sizeof(ctx->outs));
+  blake2b_update(&hash, ctx->locktime, sizeof(ctx->locktime));
+  blake2b_update(&hash, type, sizeof(type));
+  blake2b_final(&hash, digest);
 
   ledger_ecdsa_sign(path, depth, digest, sizeof(digest), sig);
 
   if (confirm) {
-    hns_bin2hex(ctx->full_str, ctx->txid, sizeof(ctx->txid));
+    bin2hex(ctx->full_str, ctx->txid, sizeof(ctx->txid));
     memmove(ctx->part_str, ctx->full_str, 12);
     memmove(ctx->sig, sig, sig[1] + 2);
     ctx->full_str_pos = 0;
@@ -331,7 +331,7 @@ sign(
     ctx->full_str[ctx->full_str_len] = '\0';
     ctx->part_str[12] = '\0';
     UX_DISPLAY(compare_txid, compare_txid_prepro);
-    *flags |= IO_ASYNCH_REPLY;
+    *flags |= LEDGER_ASYNCH_REPLY;
 
     return 0;
   }
@@ -339,25 +339,25 @@ sign(
   return sig[1] + 2;
 }
 
-volatile uint8_t
+volatile uint16_t
 hns_apdu_get_signature(
   uint8_t init,
   uint8_t func,
-  uint8_t len,
-  volatile uint8_t * in,
-  volatile uint8_t * out,
-  volatile uint8_t * flags
+  uint16_t len,
+  volatile uint8_t *in,
+  volatile uint8_t *out,
+  volatile uint8_t *flags
 ) {
   switch(init) {
     case P1_INIT:
       if (!ledger_pin_validated())
-        THROW(HNS_EX_SECURITY_STATUS_NOT_SATISFIED);
+        THROW(HNS_SECURITY_CONDITION_NOT_SATISFIED);
 
     case P1_CONT:
       break;
 
     default:
-      THROW(HNS_EX_INCORRECT_P1_P2);
+      THROW(HNS_INCORRECT_P1);
       break;
   };
 
@@ -371,7 +371,7 @@ hns_apdu_get_signature(
       break;
 
     default:
-      THROW(HNS_EX_INCORRECT_P1_P2);
+      THROW(HNS_INCORRECT_P2);
       break;
   }
 

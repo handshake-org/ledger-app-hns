@@ -1,11 +1,13 @@
 #ifndef _HNS_LEDGER_H
 #define _HNS_LEDGER_H
 
-#include <stdbool.h>
 #include <stdint.h>
 #include "os.h"
 #include "os_io_seproxyhal.h"
-#include "utils.h"
+
+#define LEDGER_ASYNCH_REPLY IO_ASYNCH_REPLY
+#define LEDGER_RESET EXCEPTION_IO_RESET
+#define LEDGER_RETURN_AFTER_TX IO_RETURN_AFTER_TX
 
 #if defined(TARGET_NANOS)
 
@@ -27,10 +29,15 @@
    (char *)text,0,0,0,NULL,NULL,NULL}
 #endif
 
+typedef struct ledger_xpub_s {
+  uint8_t code[32];
+  uint8_t key[33];
+} ledger_xpub_t;
+
+extern uint8_t *g_ledger_apdu_buffer;
+extern uint16_t g_ledger_apdu_buffer_size;
 extern uint16_t g_ledger_ui_step;
 extern uint16_t g_ledger_ui_step_count;
-extern uint16_t g_ledger_apdu_exchange_buffer_size;
-extern uint8_t * g_ledger_apdu_exchange_buffer;
 
 uint8_t *
 ledger_init(void);
@@ -42,10 +49,20 @@ void
 ledger_ui_idle(void);
 
 void
-ledger_ecdsa_derive_xpub(uint32_t *, uint8_t, hns_xpub_t *);
+ledger_ecdsa_derive_xpub(
+  uint32_t *path,
+  uint8_t depth,
+  ledger_xpub_t *xpub
+);
 
 void
-ledger_ecdsa_sign(uint32_t *, uint8_t, uint8_t *, size_t, uint8_t *);
+ledger_ecdsa_sign(
+  uint32_t *path,
+  uint8_t depth,
+  uint8_t *hash,
+  size_t hash_len,
+  uint8_t *sig
+);
 
 static inline void
 ledger_boot(void) {
@@ -69,19 +86,13 @@ ledger_exit(unsigned int exit_code) {
 }
 
 static inline uint16_t
-ledger_apdu_exchange(uint8_t flags, uint16_t len) {
-  return io_exchange(CHANNEL_APDU | flags, len);
-}
+ledger_apdu_exchange(uint8_t flags, uint16_t len, uint16_t sw) {
+  if (sw) {
+    g_ledger_apdu_buffer[len++] = sw >> 8;
+    g_ledger_apdu_buffer[len++] = sw & 0xff;
+  }
 
-static inline uint16_t
-ledger_apdu_exchange_with_sw(uint8_t flags, uint16_t len, uint16_t sw) {
-  g_ledger_apdu_exchange_buffer[len++] = sw >> 8;
-  g_ledger_apdu_exchange_buffer[len++] = sw & 0xFF;
   return io_exchange(CHANNEL_APDU | flags, len);
-}
-
-static inline void
-io_exchange_with_code(uint16_t code, uint8_t len) {
 }
 
 static inline unsigned int

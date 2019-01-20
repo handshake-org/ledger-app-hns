@@ -5,9 +5,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
-#include "blake2b.h"
 #include "ledger.h"
-#include "segwit-addr.h"
 
 #define HNS_APP_NAME "Handshake"
 #define HNS_MAX_INPUTS 15
@@ -16,55 +14,8 @@
 
 typedef uint32_t hns_varint_t;
 
-typedef struct hns_xpub_s {
-  uint8_t code[32];
-  uint8_t key[33];
-} hns_xpub_t;
-
-typedef struct hns_apdu_pubkey_ctx_s {
-  uint8_t store[109];
-  uint8_t store_len;
-  uint8_t confirm_str[20];
-  uint8_t part_str[13];
-  uint8_t full_str[67];
-  uint8_t full_str_len;
-  uint8_t full_str_pos;
-} hns_apdu_pubkey_ctx_t;
-
-typedef struct hns_input_s {
-  uint8_t prev[36];
-  uint8_t val[8];
-  uint8_t seq[4];
-} hns_input_t;
-
-typedef struct hns_apdu_signature_ctx_t {
-  bool sign_ready;
-  bool skip_input;
-  hns_input_t ins[HNS_MAX_INPUTS];
-  uint8_t ins_len;
-  uint8_t outs_len;
-  uint8_t ver[4];
-  uint8_t prevs[32];
-  uint8_t seqs[32];
-  uint8_t outs[32];
-  uint8_t txid[32];
-  uint8_t locktime[4];
-  uint8_t sig[73];
-  uint8_t part_str[13];
-  uint8_t full_str[65];
-  uint8_t full_str_len;
-  uint8_t full_str_pos;
-} hns_apdu_signature_ctx_t;
-
-typedef union {
-  hns_apdu_pubkey_ctx_t pubkey;
-  hns_apdu_signature_ctx_t signature;
-} global_ctx_t;
-
-extern global_ctx_t global;
-
 static inline void
-hns_bin2hex(uint8_t * hex, uint8_t * bin, uint8_t len) {
+bin2hex(uint8_t * hex, uint8_t * bin, uint8_t len) {
   static uint8_t const lookup[] = "0123456789abcdef";
   uint8_t i;
 
@@ -74,20 +25,6 @@ hns_bin2hex(uint8_t * hex, uint8_t * bin, uint8_t len) {
   }
 
   hex[2*len] = '\0';
-}
-
-static inline void
-hns_create_p2pkh_addr(char * hrp, uint8_t * pub, uint8_t * out) {
-  uint8_t pkh[20];
-  uint8_t addr[42];
-
-  if (blake2b(pkh, 20, NULL, 0, pub, 33))
-    THROW(EXCEPTION);
-
-  if (!segwit_addr_encode(addr, hrp, 0, pkh, 20))
-    THROW(EXCEPTION);
-
-  memmove(out, addr, sizeof(addr));
 }
 
 static inline uint8_t

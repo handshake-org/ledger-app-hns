@@ -1,28 +1,19 @@
+#include <stdbool.h>
 #include "ledger.h"
-
-/**
- * The following functions are defined in ledger.h
- *
- * static inline void ledger_boot(void);
- * static inline void ledger_reset(void);
- * static inline void ledger_exit(void);
- * static inline uint16_t ledger_apdu_exchange(void);
- * static inline unsigned int ledger_pin_validated(void);
- */
 
 typedef cx_ecfp_private_key_t ledger_private_key_t;
 typedef cx_ecfp_public_key_t ledger_public_key_t;
 
-uint8_t * g_ledger_apdu_exchange_buffer;
-uint16_t g_ledger_apdu_exchange_buffer_size;
+uint8_t *g_ledger_apdu_buffer;
+uint16_t g_ledger_apdu_buffer_size;
 uint16_t g_ledger_ui_step;
 uint16_t g_ledger_ui_step_count;
 
 uint8_t *
 ledger_init(void) {
-  g_ledger_apdu_exchange_buffer = G_io_apdu_buffer;
-  g_ledger_apdu_exchange_buffer_size = sizeof(G_io_apdu_buffer);
-  os_memset(G_io_apdu_buffer, 0, g_ledger_apdu_exchange_buffer_size);
+  g_ledger_apdu_buffer = G_io_apdu_buffer;
+  g_ledger_apdu_buffer_size = sizeof(G_io_apdu_buffer);
+  os_memset(G_io_apdu_buffer, 0, g_ledger_apdu_buffer_size);
 
   io_seproxyhal_init();
   USB_power(false);
@@ -40,19 +31,23 @@ typedef struct ledger_bip32_node_s {
 
 static void
 ledger_ecdsa_derive_node(
-  uint32_t * path,
+  uint32_t *path,
   uint8_t depth,
-  ledger_bip32_node_t * n
+  ledger_bip32_node_t *n
 ) {
-  uint8_t privkey[32];
-  os_perso_derive_node_bip32(CX_CURVE_256K1, path, depth, privkey, n->chaincode);
-  cx_ecdsa_init_private_key(CX_CURVE_256K1, privkey, 32, &n->prv);
+  uint8_t priv[32];
+  os_perso_derive_node_bip32(CX_CURVE_256K1, path, depth, priv, n->chaincode);
+  cx_ecdsa_init_private_key(CX_CURVE_256K1, priv, 32, &n->prv);
   cx_ecfp_generate_pair(CX_CURVE_256K1, &n->pub, &n->prv, true);
   n->pub.W[0] = n->pub.W[64] & 1 ? 0x03 : 0x02;
 }
 
 void
-ledger_ecdsa_derive_xpub(uint32_t * path, uint8_t depth, hns_xpub_t * xpub) {
+ledger_ecdsa_derive_xpub(
+  uint32_t *path,
+  uint8_t depth,
+  ledger_xpub_t *xpub
+) {
   ledger_bip32_node_t n;
   ledger_ecdsa_derive_node(path, depth, &n);
   memmove(xpub->key, n.pub.W, sizeof(xpub->key));
@@ -61,11 +56,11 @@ ledger_ecdsa_derive_xpub(uint32_t * path, uint8_t depth, hns_xpub_t * xpub) {
 
 void
 ledger_ecdsa_sign(
-  uint32_t * path,
+  uint32_t *path,
   uint8_t depth,
-  uint8_t * hash,
+  uint8_t *hash,
   size_t hash_len,
-  uint8_t * sig
+  uint8_t *sig
 ) {
   ledger_bip32_node_t n;
   ledger_ecdsa_derive_node(path, depth, &n);
