@@ -46,7 +46,7 @@ typedef struct hns_input_s {
 } hns_input_t;
 
 typedef struct hns_apdu_pubkey_ctx_s {
-  uint8_t store[109];
+  uint8_t store[107];
   uint8_t store_len;
   uint8_t confirm_str[20];
   uint8_t part_str[13];

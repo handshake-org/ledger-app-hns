@@ -176,11 +176,11 @@ hns_apdu_get_public_key(
   uint8_t addr[42];
   create_p2pkh_addr(hrp, xpub.key, addr);
 
-  len  = write_varbytes(&out, xpub.key, 33);
-  len += write_varbytes(&out, addr, 42);
+  len  = write_bytes(&out, xpub.key, 33);
   len += write_bytes(&out, xpub.code, 32);
+  len += write_bytes(&out, addr, 42);
 
-  if (len != 109)
+  if (len != sizeof(xpub.key) + sizeof(xpub.code) + sizeof(addr))
     THROW(HNS_INCORRECT_WRITE_LEN);
 
 #if defined(TARGET_NANOS)

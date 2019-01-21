@@ -99,7 +99,7 @@ The second instruction param (P2) controls the network used to generate the addr
 
 | Field                               | Len |
 | ----------------------------------- | --- |
-| # of derivations (max 10)           | 1   |
+| # of derivations (max 5)            | 1   |
 | First derivation index (big endian) | 4   |
 | ...                                 | 4   |
 | Last derivation index (big endian)  | 4   |
@@ -108,11 +108,9 @@ The second instruction param (P2) controls the network used to generate the addr
 
 | Field             | Len |
 | ----------------- | --- |
-| public key length | 1   |
-| public key        | var |
-| address length    | 1   |
-| address           | var |
-| chaincode         | 32  |
+| public key        | 33  |
+| chain code        | 32  |
+| address           | 42  |
 
 ### GET SIGNATURE
 #### Description
