@@ -189,12 +189,12 @@ hns_apdu_get_public_key(
     ctx->store_len = len;
 
     if (p1 & ADDRESS_FLAG) {
-      memmove(ctx->confirm_str, "Confirm address:", 17);
+      memmove(ctx->confirm_str, "Address", 8);
       memmove(ctx->full_str, addr, 42);
       ctx->full_str[42] = '\0';
       ctx->full_str_len = 42;
     } else {
-      memmove(ctx->confirm_str, "Confirm public key:", 20);
+      memmove(ctx->confirm_str, "Public Key", 11);
       bin2hex(ctx->full_str, xpub.key, sizeof(xpub.key));
       ctx->full_str[66] = '\0';
       ctx->full_str_len = 66;
