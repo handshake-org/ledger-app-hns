@@ -1,10 +1,10 @@
 # ledger-app-hns
 
 This is a key management application for the Handshake Protocol. It runs on
-the Ledger Nano S and Ledger Blue personal security devices. It allows users
-to create extended public keys and addresses as well as create signatures
-for valid Handshake transactions. It can be used with the
-[hns-ledger][hns-ledger] client library to interact with wallet software.
+the Ledger Nano S personal security device and allows users to create extended
+public keys, addresses, and signatures for valid Handshake transactions. It
+can be used with the [hns-ledger][hns-ledger] client library to interact with
+wallet software.
 
 This document serves as an overview of the relevant technical and licensing
 details for this application. For more general information on developing
