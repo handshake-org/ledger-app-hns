@@ -3,8 +3,8 @@
 This is a key management application for the Handshake Protocol. It runs on
 the Ledger Nano S and Ledger Blue personal security devices. It allows users
 to create extended public keys and addresses as well as create signatures
-for valid Handshake transactions. It can be used with the [hns-ledger] client
-library to interact with wallet software.
+for valid Handshake transactions. It can be used with the
+[hns-ledger][hns-ledger] client library to interact with wallet software.
 
 This document serves as an overview of the relevant technical and licensing
 details for this application. For more general information on developing
@@ -252,6 +252,7 @@ Parts of this software are based on [ledger-app-btc][btc], [blue-app-nano][nano]
 
 See LICENSE for more info.
 
+[hns-ledger]: https://github.com/boymanjor/hns-ledger
 [ledger]: https://ledger.readhthedocs.io/en/latest/index.html
 [apdu]: https://en.wikipedia.org/wiki/Smart_card_application_protocol_data_unit
 [sia]: https://gitlab.com/nebulouslabs/nanos-app-sia
