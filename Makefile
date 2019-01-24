@@ -96,16 +96,6 @@ load: all
 delete:
 	python -m ledgerblue.deleteApp $(COMMON_DELETE_PARAMS)
 
-# don't run additional goals on docker build
-MAKECMDGOALS := docker load-docker
-
-# import generic rules from the sdk
-include $(BOLOS_SDK)/Makefile.rules
-
-# add dependency on custom makefile filename
-dep/%.d: %.c Makefile
-
-# build binaries using Docker
 docker:
 	docker build --build-arg CACHE_BUST='$(shell date)' -f Dockerfile.build -t ledger-app-hns-build .
 	docker run --name ledger-app-hns-build ledger-app-hns-build
@@ -116,5 +106,16 @@ docker:
 	docker rm ledger-app-hns-build
 	docker rmi ledger-app-hns-build
 
-load-docker: docker
-	python3 -m ledgerblue.loadApp $(APP_LOAD_PARAMS)
+docker-load: docker
+	python -m ledgerblue.loadApp $(APP_LOAD_PARAMS)
+
+# do not run additional goals when using docker
+MAKECMDGOALS := docker docker-load
+
+# import generic rules from the sdk
+include $(BOLOS_SDK)/Makefile.rules
+
+# add dependency on custom makefile filename
+dep/%.d: %.c Makefile
+
+.PHONY: load delete docker docker-load
