@@ -151,6 +151,7 @@ hns_apdu_get_public_key(
 
   char hrp[2];
 
+  // TODO: do not assume account/address
   switch(path[1]) {
     case MAINNET:
       strcpy(hrp, "hs");
