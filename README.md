@@ -67,33 +67,25 @@ None
 ### GET PUBLIC KEY
 #### Description
 
-This command returns the extended public key and Bech32 encoded address for
-the given BIP 32 path.
+This command returns the extended public key and Bech32 encoded
+address for the given BIP 32 path.
 
-The first instruction param (P1) can be used to require on-device confirmation
-of the public key or address. The least significant bit can be set to require
-on-device confirmation. The second least significant bit controls which value
-to display.
-
-The second instruction param (P2) controls the network used to generate the address.
+The first instruction param (P1) can be used to require on-device
+confirmation of the public key or address. The least significant
+bit can be set to require on-device confirmation. The second least
+significant bit controls which value to display.
 
 #### Structure
 ##### Header
 
-| CLA   | INS   | P1   | P2    | LC  |
-| ----- | ----- | ---- | ----- | --- |
-| 0xe0  | 0x42  | *var | **var | var |
+| CLA   | INS   | P1   | P2   | LC  |
+| ----- | ----- | ---- | ---- | --- |
+| 0xe0  | 0x42  | *var | 0x00 | var |
 
 \* P1:
 - 0x00 = No confimation
 - 0x01 = Public key confirmation
 - 0x03 = Address confirmation
-
-** P2:
-- 0x00 = mainnet
-- 0x01 = testnet
-- 0x02 = simnet
-- 0x03 = regtest
 
 ##### Input data <a href="#encoded-path"></a>
 

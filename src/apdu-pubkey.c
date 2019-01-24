@@ -12,10 +12,10 @@
 #define CONFIRM_FLAG 0x01
 #define ADDRESS_FLAG 0x02
 
-#define P2_MAINNET 0x00
-#define P2_TESTNET 0x01
-#define P2_SIMNET 0x02
-#define P2_REGTEST 0x03
+#define MAINNET 0x800014e9
+#define TESTNET 0x800014ea
+#define REGTEST 0x800014eb
+#define SIMNET  0x800014ec
 
 static hns_apdu_pubkey_ctx_t *ctx = &global.pubkey;
 
@@ -137,29 +137,8 @@ hns_apdu_get_public_key(
       break;
   }
 
-  char hrp[2];
-
-  switch(p2) {
-    case P2_MAINNET:
-      strcpy(hrp, "hs");
-      break;
-
-    case P2_TESTNET:
-      strcpy(hrp, "ts");
-      break;
-
-    case P2_SIMNET:
-      strcpy(hrp, "ss");
-      break;
-
-    case P2_REGTEST:
-      strcpy(hrp, "rs");
-      break;
-
-    default:
-      THROW(HNS_INCORRECT_P2);
-      break;
-  }
+  if(p2 != 0)
+    THROW(HNS_INCORRECT_P2);
 
   uint8_t depth;
   uint32_t path[HNS_MAX_PATH];
@@ -169,6 +148,30 @@ hns_apdu_get_public_key(
 
   if (!read_bip32_path(&buf, &len, &depth, path))
     THROW(HNS_CANNOT_READ_BIP32_PATH);
+
+  char hrp[2];
+
+  switch(path[1]) {
+    case MAINNET:
+      strcpy(hrp, "hs");
+      break;
+
+    case TESTNET:
+      strcpy(hrp, "ts");
+      break;
+
+    case REGTEST:
+      strcpy(hrp, "rs");
+      break;
+
+    case SIMNET:
+      strcpy(hrp, "ss");
+      break;
+
+    default:
+      THROW(HNS_INCORRECT_P2);
+      break;
+  }
 
   ledger_xpub_t xpub;
   ledger_ecdsa_derive_xpub(path, depth, &xpub);
