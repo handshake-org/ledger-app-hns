@@ -104,7 +104,7 @@ docker:
 	docker cp ledger-app-hns-build:/ledger-app-hns/debug/app.map ./debug
 	docker cp ledger-app-hns-build:/ledger-app-hns/debug/app.asm ./debug
 	docker rm ledger-app-hns-build
-	docker rmi ledger-app-hns-build
+	docker images -qf dangling=true | xargs docker rmi
 
 docker-load: docker
 	python -m ledgerblue.loadApp $(APP_LOAD_PARAMS)
