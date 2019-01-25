@@ -64,7 +64,7 @@ ledger_ecdsa_sign(
 ) {
   ledger_bip32_node_t n;
   ledger_ecdsa_derive_node(path, depth, &n);
-  cx_ecdsa_sign(&n.prv, CX_LAST | CX_RND_TRNG, CX_SHA256,
+  cx_ecdsa_sign(&n.prv, CX_RND_RFC6979 | CX_LAST, CX_SHA256,
     hash, hash_len, sig, NULL);
 }
 
