@@ -51,6 +51,7 @@ ledger_ecdsa_derive_xpub(
   ledger_bip32_node_t n;
   ledger_ecdsa_derive_node(path, depth, &n);
   memmove(xpub->key, n.pub.W, sizeof(xpub->key));
+  memmove(xpub->code, n.chaincode, sizeof(xpub->code));
   memset(&n.prv, 0, sizeof(n.prv));
 }
 
