@@ -26,6 +26,7 @@ RUN git clone https://github.com/LedgerHQ/nanos-secure-sdk /nanos-secure-sdk
 
 WORKDIR /nanos-secure-sdk
 ENV BOLOS_SDK=/nanos-secure-sdk
+RUN git checkout nanos-1422
 RUN sed -i s/python/python3/g icon.py
 RUN echo '#!/bin/bash\npython3 "$@"' > /usr/bin/python && \
     chmod +x /usr/bin/python
