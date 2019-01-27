@@ -20,23 +20,23 @@ static blake2b_ctx hash;
 static blake2b_ctx txid;
 
 #if defined(TARGET_NANOS)
-static const bagl_element_t approve_txid[] = {
+static const bagl_element_t approve[] = {
   LEDGER_UI_BACKGROUND(),
   LEDGER_UI_ICON_LEFT(0x00, BAGL_GLYPH_ICON_CROSS),
   LEDGER_UI_ICON_RIGHT(0x00, BAGL_GLYPH_ICON_CHECK),
   LEDGER_UI_TEXT(0x00, 0, 12, 128, "OK?")
 };
 
-static const bagl_element_t compare_txid[] = {
+static const bagl_element_t compare[] = {
   LEDGER_UI_BACKGROUND(),
   LEDGER_UI_ICON_LEFT(0x01, BAGL_GLYPH_ICON_LEFT),
   LEDGER_UI_ICON_RIGHT(0x02, BAGL_GLYPH_ICON_RIGHT),
-  LEDGER_UI_TEXT(0x00, 0, 12, 128, "TXID"),
+  LEDGER_UI_TEXT(0x00, 0, 12, 128, "TX Hash"),
   LEDGER_UI_TEXT(0x00, 0, 26, 128, global.signature.part_str)
 };
 
 static unsigned int
-approve_txid_button(unsigned int mask, unsigned int ctr) {
+approve_button(unsigned int mask, unsigned int ctr) {
   switch (mask) {
     case BUTTON_EVT_RELEASED | BUTTON_LEFT: {
       memset(g_ledger_apdu_buffer, 0, g_ledger_apdu_buffer_size);
@@ -58,7 +58,7 @@ approve_txid_button(unsigned int mask, unsigned int ctr) {
 }
 
 static unsigned int
-compare_txid_button(unsigned int mask, unsigned int ctr) {
+compare_button(unsigned int mask, unsigned int ctr) {
   switch (mask) {
     case BUTTON_LEFT:
     case BUTTON_EVT_FAST | BUTTON_LEFT:
@@ -79,7 +79,7 @@ compare_txid_button(unsigned int mask, unsigned int ctr) {
       break;
 
     case BUTTON_EVT_RELEASED | BUTTON_LEFT | BUTTON_RIGHT:
-      UX_DISPLAY(approve_txid, NULL);
+      UX_DISPLAY(approve, NULL);
       break;
   }
 
@@ -87,7 +87,7 @@ compare_txid_button(unsigned int mask, unsigned int ctr) {
 }
 
 static const bagl_element_t *
-compare_txid_prepro(const bagl_element_t *e) {
+compare_prepro(const bagl_element_t *e) {
   switch (e->component.userid) {
     case 1:
       return (ctx->full_str_pos == 0) ? NULL : e;
@@ -338,7 +338,7 @@ sign(
     ctx->full_str_len = 64;
     ctx->full_str[ctx->full_str_len] = '\0';
     ctx->part_str[12] = '\0';
-    UX_DISPLAY(compare_txid, compare_txid_prepro);
+    UX_DISPLAY(compare, compare_prepro);
     *flags |= LEDGER_ASYNCH_REPLY;
 
     return 0;
