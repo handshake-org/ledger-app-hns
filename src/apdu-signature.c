@@ -349,7 +349,7 @@ sign(
 }
 
 volatile uint16_t
-hns_apdu_get_signature(
+hns_apdu_get_input_signature(
   uint8_t init,
   uint8_t func,
   uint16_t len,

@@ -16,11 +16,13 @@ project. The Nebulous Inc. developers have done a wonderful job of documenting
 both the high-level architecture and low-level implementation details of
 Nano S app development.
 
+
 ## Docker Build
 
 Run `make docker` to compile the application in a Docker container.
 The Dockerfile is heavily inspired by
 <https://github.com/mkrufky/ledger-app-eth-dockerized>.
+
 
 ## APDU Command Specification
 
@@ -29,10 +31,11 @@ protocol. This specification describes the APDU command interface for
 `ledger-app-hns`.
 
 The basic structure of an APDU command consists of a 5 byte header followed
-by a variable amount of command input data, if necessary. The header for
-an HNS Ledger application command takes the following structure:
+by a variable amount of command input data. The header for an HNS Ledger
+application command takes the following structure:
 
->NOTE: for the remainder of this document all lengths are displayed in bytes.
+>NOTE: For the remainder of this document all lengths are represented in bytes.
+All data is represented as little-endian bytestrings except where noted.
 
 | Field | Len | Purpose                                               |
 | ----  | --- | ----------------------------------------------------- |
@@ -40,11 +43,18 @@ an HNS Ledger application command takes the following structure:
 | INS   | 1   | Instruction code - the specific command               |
 | P1    | 1   | Instruction param #1                                  |
 | P2    | 1   | Instruction param #2                                  |
-| LC    | 1   | Length of command's input data                        |
+| LC    | 1   | Length of command input data                          |
 
->NOTE: the above description is unique to this application. Specifically,
-the APDU protocl allows for a larger LC field. A more general description
-of the APDU message protocol can be found [here][apdu].
+\*The above description is unique to this application. Specifically, the APDU protocol
+allows for a larger LC field. A more general description of the APDU message protocol
+can be found [here][apdu].
+
+## Commands
+
+- [GET APP VERSION](#get-app-version)
+- [GET PUBLIC KEY](#get-public-key)
+- [GET INPUT SIGNATURE](#get-input-signature)
+
 
 ### GET APP VERSION
 #### Description
@@ -73,63 +83,83 @@ None
 ### GET PUBLIC KEY
 #### Description
 
-This command returns the extended public key and Bech32 encoded
-address for the given BIP 32 path.
+This command returns a public key for the given BIP32 path.
+Using the APDU parameter fields it can also return a Bech32
+encoded address for the public key, or the details needed
+reconstruct the extended public key at the specified level
+in the HD tree.
 
 The first instruction param (P1) can be used to require on-device
-confirmation of the public key or address. The least significant
-bit can be set to require on-device confirmation. The second least
-significant bit controls which value to display.
+confirmation. The second device param indicates which, if any,
+additional details to return, i.e. extended public details and/or
+address. If confirmation is turned on, and an address is generated,
+the address will be displayed on screen. Otherwise, the public key
+will be displayed for confirmation.
+
+>NOTE: an on-device warning will be displayed for non-hardened
+derivation at the BIP44 account level or above. It will also be
+displayed for derivations past the address index level.
 
 #### Structure
 ##### Header
 
-| CLA   | INS   | P1   | P2   | LC  |
-| ----- | ----- | ---- | ---- | --- |
-| 0xe0  | 0x42  | *var | 0x00 | var |
+| CLA   | INS   | P1   | P2    | LC  |
+| ----- | ----- | ---- | ----- | --- |
+| 0xe0  | 0x42  | *var | **var | var |
 
 \* P1:
+
 - 0x00 = No confimation
-- 0x01 = Public key confirmation
-- 0x03 = Address confirmation
+- 0x01 = Require confirmation
+
+\* P2:
+- 0x00 = Public key only
+- 0x01 = Public key + chain code + parent fingerprint
+- 0x02 = Public key + address
+- 0x03 = Public key + chain code + parent fingerprint + address
 
 ##### Input data <a href="#encoded-path"></a>
 
 | Field                               | Len |
 | ----------------------------------- | --- |
 | # of derivations (max 5)            | 1   |
-| First derivation index (big endian) | 4   |
+| First derivation index (big-endian) | 4   |
 | ...                                 | 4   |
-| Last derivation index (big endian)  | 4   |
+| Last derivation index (big-endian)  | 4   |
 
 ##### Output data
 
-| Field             | Len |
-| ----------------- | --- |
-| public key        | 33  |
-| chain code        | 32  |
-| address           | 42  |
+| Field                           | Len |
+| -------------------------       | --- |
+| public key                      | 33  |
+| chain code length               | 1   |
+| chain code                      | var |
+| parent fingerprint length       | 1   |
+| parent fingerprint (big-endian) | var |
+| address length                  | 1   |
+| address                         | var |
 
-### GET SIGNATURE
+
+### GET INPUT SIGNATURE
 #### Description
 
-This command handles the entire signature creation process. It
-operates in two modes: parse and sign. When engaged in parse mode,
-transaction details are sent to the device where they are parsed,
-cached, and prepared for signing. Once all tx details have been
-parsed, the user can send signature requests to the device for
-each input.
+This command handles the entire input signature creation process.
+It operates in two modes: [parse](#parse) and [sign](#sign). When
+engaged in parse mode, transaction details are sent to the device
+where they are parsed, cached, and prepared for signing. Once
+all tx details have been parsed, the user can send signature
+requests for each input.
 
-Both modes may require multiple exchanges between the client and
-the application. The first instruction param (P1) indicates if a
-message is the initial one.
+Both modes may require multiple message exchanges between the
+client and the device. The first instruction param (P1) indicates
+if a message is the initial one. An initial parse message clears
+any cached transaction details from memory. An initial signature
+request for a particular tx requires on-device confirmation of
+the calculated txid.
 
 The second instruction param (P2) indicates the operation mode.
-The initial parse message clears any cached transaction details
-from memory. The initial signature request requires on-device
-confirmation of the calculated txid.
 
-#### Structure - Parse Mode
+#### Structure - Parse Mode <a href="#parse"></a>
 ##### Header
 
 | CLA   | INS   | P1   | P2    | LC  |
@@ -142,7 +172,9 @@ confirmation of the calculated txid.
 
 ##### Input data
 
->NOTE: the tx details should be sent over in packets of up to 331 bytes.
+>NOTE: the tx details should be sent over in packets of up to
+331 bytes. The apdu exchange buffer is 336 bytes and the first
+5 bytes are used for the command header.
 
 | Field         | Len |
 | ------------- | --- |
@@ -192,7 +224,7 @@ confirmation of the calculated txid.
 
 None
 
-#### Structure - Sign Mode
+#### Structure - Sign Mode <a href="#sign"></a>
 ##### Header
 
 | CLA   | INS  | P1   | P2   | LC  |
@@ -219,11 +251,13 @@ None
 | ---------- | --- |
 | signature  | var |
 
+
 ## Contribution and License Agreement
 
 If you contribute code to this project, you are implicitly allowing your code
 to be distributed under the MIT license. You are also implicitly verifying that
 all code is your original work. `</legalese>`
+
 
 ## License
 

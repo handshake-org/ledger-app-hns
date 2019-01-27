@@ -102,7 +102,7 @@ hns_apdu_get_public_key(
 );
 
 volatile uint16_t
-hns_apdu_get_signature(
+hns_apdu_get_input_signature(
   uint8_t p1,
   uint8_t p2,
   uint16_t len,
