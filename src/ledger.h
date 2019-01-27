@@ -37,6 +37,7 @@
 typedef struct ledger_xpub_s {
   uint8_t code[32];
   uint8_t key[33];
+  uint8_t fp[4];
 } ledger_xpub_t;
 
 extern uint8_t *g_ledger_apdu_buffer;

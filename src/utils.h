@@ -9,8 +9,19 @@
 
 #define HNS_APP_NAME "HANDSHAKE"
 #define HNS_MAX_INPUTS 15
-#define HNS_MAX_PATH 5
-#define HNS_MAX_PATH_LEN 4 * HNS_MAX_PATH + 1
+#define HNS_MAX_DEPTH 10
+#define HNS_ADDR_DEPTH 5
+
+#define HNS_HARDENED 0x80000000
+#define HNS_PURPOSE HNS_HARDENED | 44
+#define HNS_MAINNET HNS_HARDENED | 5353
+#define HNS_TESTNET HNS_HARDENED | 5354
+#define HNS_REGTEST HNS_HARDENED | 5355
+#define HNS_SIMNET  HNS_HARDENED | 5356
+#define HNS_SAFE_UNHARDENED_LEVEL 3
+
+#define HNS_BE true
+#define HNS_LE false
 
 typedef uint32_t hns_varint_t;
 
@@ -111,7 +122,7 @@ read_varint(uint8_t ** buf, uint8_t * len, hns_varint_t * varint) {
     case 0xfe: {
       uint32_t v;
 
-      if (!read_u32(buf, len, &v, false)) {
+      if (!read_u32(buf, len, &v, HNS_LE)) {
         *buf -= 1;
         *len += 1;
         return false;
@@ -130,7 +141,7 @@ read_varint(uint8_t ** buf, uint8_t * len, hns_varint_t * varint) {
     case 0xfd: {
       uint16_t v;
 
-      if (!read_u16(buf, len, &v, false)) {
+      if (!read_u16(buf, len, &v, HNS_LE)) {
         *buf -= 1;
         *len += 1;
         return false;
@@ -239,7 +250,8 @@ read_bip32_path(
   uint8_t ** buf,
   uint8_t * len,
   uint8_t * depth,
-  uint32_t * path
+  uint32_t * path,
+  uint8_t * unsafe_path
 ) {
   if (*len < 1)
     return false;
@@ -247,20 +259,23 @@ read_bip32_path(
   if (!read_u8(buf, len, depth))
     return false;
 
-  if (*depth > HNS_MAX_PATH) {
+  if (*depth > HNS_MAX_DEPTH) {
     *buf -= 1;
     *len += 1;
     return false;
   }
 
-  uint8_t i;
+  uint8_t level;
 
-  for (i = 0; i < *depth; i++) {
-    if (!read_u32(buf, len, &path[i], true)) {
-      *buf -= 4 + (4 * i);
-      *len += 4 + (4 * i);
+  for (level = 0; level < *depth; level++) {
+    if (!read_u32(buf, len, &path[level], HNS_BE)) {
+      *buf -= 4 + (4 * level);
+      *len += 4 + (4 * level);
       return false;
     }
+
+    if (level < HNS_SAFE_UNHARDENED_LEVEL && !(path[level] & HNS_HARDENED))
+      *unsafe_path = 1;
   }
 
   return true;
@@ -336,13 +351,13 @@ write_varint(uint8_t ** buf, hns_varint_t val) {
 
   if (val <= 0xffff) {
     write_u8(buf, 0xfd);
-    write_u16(buf, (uint16_t)val, false);
+    write_u16(buf, (uint16_t)val, HNS_LE);
     return 3;
   }
 
   if (val <= 0xffffffff) {
     write_u8(buf, 0xfe);
-    write_u32(buf, (uint32_t)val, false);
+    write_u32(buf, (uint32_t)val, HNS_LE);
     return 5;
   }
 

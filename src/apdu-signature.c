@@ -24,14 +24,14 @@ static const bagl_element_t approve_txid[] = {
   LEDGER_UI_BACKGROUND(),
   LEDGER_UI_ICON_LEFT(0x00, BAGL_GLYPH_ICON_CROSS),
   LEDGER_UI_ICON_RIGHT(0x00, BAGL_GLYPH_ICON_CHECK),
-  LEDGER_UI_TEXT(0x00, 0, 12, 128, "Correct match?")
+  LEDGER_UI_TEXT(0x00, 0, 12, 128, "OK?")
 };
 
 static const bagl_element_t compare_txid[] = {
   LEDGER_UI_BACKGROUND(),
   LEDGER_UI_ICON_LEFT(0x01, BAGL_GLYPH_ICON_LEFT),
   LEDGER_UI_ICON_RIGHT(0x02, BAGL_GLYPH_ICON_RIGHT),
-  LEDGER_UI_TEXT(0x00, 0, 12, 128, "Confirm txid:"),
+  LEDGER_UI_TEXT(0x00, 0, 12, 128, "TXID"),
   LEDGER_UI_TEXT(0x00, 0, 26, 128, global.signature.part_str)
 };
 
@@ -257,18 +257,23 @@ sign(
   volatile uint8_t *flags,
   bool confirm
 ) {
-  static uint8_t i = 0;
-  static uint8_t type[4]  = {0};
-  static uint8_t depth = 0;
-  static uint32_t path[HNS_MAX_PATH] = {0};
-  static hns_varint_t script_ctr = 0;
+  static uint8_t i;
+  static uint8_t type[4];
+  static uint8_t depth;
+  static uint32_t path[HNS_MAX_DEPTH];
+  static hns_varint_t script_ctr;
 
   if (!ctx->skip_input) {
     if (!ctx->sign_ready)
       THROW(HNS_INCORRECT_PARSER_STATE);
 
-    if (!read_bip32_path(&buf, len, &depth, path))
+    uint8_t unsafe = 0;
+
+    if (!read_bip32_path(&buf, len, &depth, path, &unsafe))
       THROW(HNS_CANNOT_READ_BIP32_PATH);
+
+    if (unsafe)
+      THROW(HNS_INCORRECT_SIGNATURE_PATH);
 
     if (!read_u8(&buf, len, &i))
       THROW(HNS_CANNOT_READ_INPUT_INDEX);

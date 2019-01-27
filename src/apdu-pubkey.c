@@ -5,29 +5,24 @@
 #include "segwit-addr.h"
 #include "utils.h"
 
-#define P1_NO_CONFIRM 0x00
-#define P1_CONFIRM_PUBKEY 0x01
-#define P1_CONFIRM_ADDRESS 0x03
+#define DEFAULT 0x00
+#define CONFIRM 0x01
 
-#define CONFIRM_FLAG 0x01
-#define ADDRESS_FLAG 0x02
-
-#define MAINNET 0x800014e9
-#define TESTNET 0x800014ea
-#define REGTEST 0x800014eb
-#define SIMNET  0x800014ec
+#define PUBKEY 0x00
+#define XPUB 0x01
+#define ADDR 0x02
 
 static hns_apdu_pubkey_ctx_t *ctx = &global.pubkey;
 
 #if defined(TARGET_NANOS)
-static const bagl_element_t approve_public_key[] = {
+static const bagl_element_t approve[] = {
   LEDGER_UI_BACKGROUND(),
   LEDGER_UI_ICON_LEFT(0x00, BAGL_GLYPH_ICON_CROSS),
   LEDGER_UI_ICON_RIGHT(0x00, BAGL_GLYPH_ICON_CHECK),
-  LEDGER_UI_TEXT(0x00, 0, 12, 128, "Correct match?")
+  LEDGER_UI_TEXT(0x00, 0, 12, 128, "OK?")
 };
 
-static const bagl_element_t compare_public_key[] = {
+static const bagl_element_t compare[] = {
   LEDGER_UI_BACKGROUND(),
   LEDGER_UI_ICON_LEFT(0x01, BAGL_GLYPH_ICON_LEFT),
   LEDGER_UI_ICON_RIGHT(0x02, BAGL_GLYPH_ICON_RIGHT),
@@ -36,7 +31,7 @@ static const bagl_element_t compare_public_key[] = {
 };
 
 static unsigned int
-approve_public_key_button(unsigned int mask, unsigned int ctr) {
+approve_button(unsigned int mask, unsigned int ctr) {
   switch (mask) {
     case BUTTON_EVT_RELEASED | BUTTON_LEFT: {
       memset(g_ledger_apdu_buffer, 0, g_ledger_apdu_buffer_size);
@@ -57,7 +52,7 @@ approve_public_key_button(unsigned int mask, unsigned int ctr) {
 }
 
 static unsigned int
-compare_public_key_button(unsigned int mask, unsigned int ctr) {
+compare_button(unsigned int mask, unsigned int ctr) {
   switch (mask) {
     case BUTTON_LEFT:
     case BUTTON_EVT_FAST | BUTTON_LEFT: {
@@ -80,7 +75,7 @@ compare_public_key_button(unsigned int mask, unsigned int ctr) {
     }
 
     case BUTTON_EVT_RELEASED | BUTTON_LEFT | BUTTON_RIGHT: {
-      UX_DISPLAY(approve_public_key, NULL);
+      UX_DISPLAY(approve, NULL);
       break;
     }
   }
@@ -89,7 +84,7 @@ compare_public_key_button(unsigned int mask, unsigned int ctr) {
 }
 
 static const bagl_element_t *
-compare_public_key_prepro(const bagl_element_t *e) {
+compare_prepro(const bagl_element_t *e) {
   switch (e->component.userid) {
     case 1:
       return (ctx->full_str_pos == 0) ? NULL : e;
@@ -104,17 +99,14 @@ compare_public_key_prepro(const bagl_element_t *e) {
 #endif
 
 static inline void
-create_p2pkh_addr(char *hrp, uint8_t *pub, uint8_t *out) {
-  uint8_t pkh[20];
-  uint8_t addr[42];
+create_p2pkh_addr(char *hrp, uint8_t *pubkey, uint8_t *addr) {
+  uint8_t hash[20];
 
-  if (blake2b(pkh, 20, NULL, 0, pub, 33))
+  if (blake2b(hash, 20, NULL, 0, pubkey, 33))
     THROW(HNS_CANNOT_INIT_BLAKE2B_CTX);
 
-  if (!segwit_addr_encode(addr, hrp, 0, pkh, 20))
+  if (!segwit_addr_encode(addr, hrp, 0, hash, 20))
     THROW(HNS_CANNOT_ENCODE_ADDRESS);
-
-  memmove(out, addr, sizeof(addr));
 }
 
 volatile uint16_t
@@ -127,72 +119,109 @@ hns_apdu_get_public_key(
   volatile uint8_t *flags
 ) {
   switch(p1) {
-    case P1_NO_CONFIRM:
-    case P1_CONFIRM_PUBKEY:
-    case P1_CONFIRM_ADDRESS:
+    case DEFAULT:
+    case CONFIRM:
       break;
-
     default:
       THROW(HNS_INCORRECT_P1);
-      break;
   }
 
-  if(p2 != 0)
-    THROW(HNS_INCORRECT_P2);
+  switch(p2) {
+    case PUBKEY:
+    case PUBKEY | XPUB:
+    case PUBKEY | ADDR:
+    case PUBKEY | XPUB | ADDR:
+      break;
+    default:
+      THROW(HNS_INCORRECT_P2);
+  }
 
-  uint8_t depth;
-  uint32_t path[HNS_MAX_PATH];
+  memset(ctx, 0, sizeof(hns_apdu_pubkey_ctx_t));
+
+  uint8_t unsafe_path = 0;
+  uint8_t long_path = 0;
+  uint8_t depth = 0;
+  uint32_t path[HNS_MAX_DEPTH];
 
   if (!ledger_pin_validated())
     THROW(HNS_SECURITY_CONDITION_NOT_SATISFIED);
 
-  if (!read_bip32_path(&buf, &len, &depth, path))
+  if (!read_bip32_path(&buf, &len, &depth, path, &unsafe_path))
     THROW(HNS_CANNOT_READ_BIP32_PATH);
 
-  char hrp[2];
+  if (depth > HNS_ADDR_DEPTH)
+    long_path = 1;
 
-  // TODO: do not assume account/address
-  switch(path[1]) {
-    case MAINNET:
-      strcpy(hrp, "hs");
-      break;
+  if ((p2 & ADDR) && (unsafe_path || long_path))
+    THROW(HNS_INCORRECT_P2);
 
-    case TESTNET:
-      strcpy(hrp, "ts");
-      break;
-
-    case REGTEST:
-      strcpy(hrp, "rs");
-      break;
-
-    case SIMNET:
-      strcpy(hrp, "ss");
-      break;
-
-    default:
-      THROW(HNS_INCORRECT_P2);
-      break;
-  }
-
+  // Write pubkey to output buffer.
   ledger_xpub_t xpub;
   ledger_ecdsa_derive_xpub(path, depth, &xpub);
+  len = write_bytes(&out, xpub.key, sizeof(xpub.key));
 
+  // Write xpub details to output buffer, or write 0x0000.
+  if (p2 & XPUB) {
+    len += write_varbytes(&out, xpub.code, sizeof(xpub.code));
+    len += write_varbytes(&out, xpub.fp, sizeof(xpub.fp));
+  } else {
+    len += write_u16(&out, 0, HNS_LE);
+  }
+
+  // Write addr to output buffer, or write 0x00.
   uint8_t addr[42];
-  create_p2pkh_addr(hrp, xpub.key, addr);
 
-  len  = write_bytes(&out, xpub.key, 33);
-  len += write_bytes(&out, xpub.code, 32);
-  len += write_bytes(&out, addr, 42);
+  if (p2 & ADDR) {
+    char hrp[2];
 
-  if (len != sizeof(xpub.key) + sizeof(xpub.code) + sizeof(addr))
-    THROW(HNS_INCORRECT_WRITE_LEN);
+    switch(path[1]) {
+      case HNS_MAINNET:
+        strcpy(hrp, "hs");
+        break;
 
+      case HNS_TESTNET:
+        strcpy(hrp, "ts");
+        break;
+
+      case HNS_REGTEST:
+        strcpy(hrp, "rs");
+        break;
+
+      case HNS_SIMNET:
+        strcpy(hrp, "ss");
+        break;
+
+      default:
+        THROW(HNS_CANNOT_ENCODE_ADDRESS);
+        break;
+    }
+
+    create_p2pkh_addr(hrp, xpub.key, addr);
+    len += write_varbytes(&out, addr, sizeof(addr));
+  } else {
+    len += write_u8(&out, 0);
+  }
+
+// TODO(boymanjor): Display base58
+// encoded string for xpub confirmation.
 #if defined(TARGET_NANOS)
-  if (p1 & CONFIRM_FLAG) {
+  if ((p1 & CONFIRM) || unsafe_path || long_path) {
     memmove(ctx->store, g_ledger_apdu_buffer, len);
     ctx->store_len = len;
 
-    if (p1 & ADDRESS_FLAG) {
+    if (unsafe_path) {
+      memmove(ctx->confirm_str, "WARNING", 8);
+      memmove(ctx->full_str,
+        "Unhardened derivation above BIP44 change level is unsafe.", 57);
+      ctx->full_str[57] = '\0';
+      ctx->full_str_len = 57;
+    } else if(long_path) {
+      memmove(ctx->confirm_str, "WARNING", 8);
+      memmove(ctx->full_str,
+        "Derivation passes BIP44 address level.", 38);
+      ctx->full_str[38] = '\0';
+      ctx->full_str_len = 38;
+    } else if (p2 & ADDR) {
       memmove(ctx->confirm_str, "Address", 8);
       memmove(ctx->full_str, addr, 42);
       ctx->full_str[42] = '\0';
@@ -208,7 +237,7 @@ hns_apdu_get_public_key(
     ctx->part_str[12] = '\0';
     ctx->full_str_pos = 0;
 
-    UX_DISPLAY(compare_public_key, compare_public_key_prepro);
+    UX_DISPLAY(compare, compare_prepro);
     *flags |= LEDGER_ASYNCH_REPLY;
     return 0;
   }

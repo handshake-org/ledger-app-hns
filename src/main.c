@@ -5,7 +5,7 @@
 #define CLA_GENERAL 0xe0
 #define INS_FIRMWARE 0x40
 #define INS_PUBKEY 0x42
-#define INS_SIGN 0x44
+#define INS_SIGNATURE 0x44
 
 global_apdu_ctx_t global;
 
@@ -50,7 +50,7 @@ hns_loop() {
           case INS_PUBKEY:
             len = hns_apdu_get_public_key(p1, p2, lc, in, out, &flags);
             break;
-          case INS_SIGN:
+          case INS_SIGNATURE:
             len = hns_apdu_get_signature(p1, p2, lc, in, out, &flags);
             break;
           default:
