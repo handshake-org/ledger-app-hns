@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include "ledger.h"
+#include "libbase58.h"
 
 typedef cx_ecfp_private_key_t ledger_private_key_t;
 typedef cx_ecfp_public_key_t ledger_public_key_t;
@@ -42,16 +43,29 @@ ledger_ecdsa_derive_node(
   n->pub.W[0] = n->pub.W[64] & 1 ? 0x03 : 0x02;
 }
 
-void
-ledger_ecdsa_derive_xpub(
-  uint32_t *path,
-  uint8_t depth,
-  ledger_xpub_t *xpub
-) {
-  ledger_bip32_node_t n;
+bool
+ledger_sha256(void *digest, const void *data, size_t data_sz) {
+  if (digest == NULL)
+    return false;
 
+  if (data == NULL)
+    return false;
+
+  if (data_sz < 1)
+    return false;
+
+  cx_sha256_t sha256;
+  cx_sha256_init(&sha256);
+  cx_hash(&sha256.header, CX_LAST, data, data_sz, digest);
+
+  return true;
+}
+
+void
+ledger_ecdsa_derive_xpub(ledger_xpub_t *xpub) {
   // Derive child node and store pubkey & chain code.
-  ledger_ecdsa_derive_node(path, depth, &n);
+  ledger_bip32_node_t n;
+  ledger_ecdsa_derive_node(xpub->path, xpub->depth, &n);
   memmove(xpub->key, n.pub.W, sizeof(xpub->key));
   memmove(xpub->code, n.chaincode, sizeof(xpub->code));
   memset(&n.prv, 0, sizeof(n.prv));
@@ -60,14 +74,14 @@ ledger_ecdsa_derive_xpub(
   memset(xpub->fp, 0, sizeof(xpub->fp));
 
   // If parent exists, store fingerprint.
-  if (depth > 1) {
+  if (xpub->depth > 1) {
     uint8_t buffer[32];
     union {
       cx_sha256_t sha256;
       cx_ripemd160_t ripemd;
     } ctx;
 
-    ledger_ecdsa_derive_node(path, depth - 1, &n);
+    ledger_ecdsa_derive_node(xpub->path, xpub->depth - 1, &n);
     cx_sha256_init(&ctx.sha256);
     cx_hash(&ctx.sha256.header, CX_LAST, n.pub.W, 33, buffer);
     cx_ripemd160_init(&ctx.ripemd);

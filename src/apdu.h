@@ -38,6 +38,7 @@
 #define HNS_INCORRECT_SIGHASH_TYPE 0x20
 #define HNS_INCORRECT_PARSER_STATE 0x21
 #define HNS_INCORRECT_SIGNATURE_PATH 0x22
+#define HNS_CANNOT_ENCODE_XPUB 0x23
 
 typedef struct hns_input_s {
   uint8_t prev[36];
@@ -50,7 +51,7 @@ typedef struct hns_apdu_pubkey_ctx_s {
   uint8_t store_len;
   uint8_t confirm_str[20];
   uint8_t part_str[13];
-  uint8_t full_str[67];
+  uint8_t full_str[113];
   uint8_t full_str_len;
   uint8_t full_str_pos;
 } hns_apdu_pubkey_ctx_t;

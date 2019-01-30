@@ -2,15 +2,29 @@
 #include "apdu.h"
 #include "blake2b.h"
 #include "ledger.h"
+#include "libbase58.h"
 #include "segwit-addr.h"
 #include "utils.h"
 
-#define DEFAULT 0x00
-#define CONFIRM 0x01
+// p1 constants
+#define DEFAULT 0x00 // xx0
+#define CONFIRM 0x01 // xx1
 
+#define NETWORK_MASK 0x06 // 110
+#define MAINNET 0x00      // 00x
+#define TESTNET 0x02      // 01x
+#define REGTEST 0x04      // 10x
+#define SIMNET  0x06      // 11x
+
+// p2 constants
 #define PUBKEY 0x00
 #define XPUB 0x01
 #define ADDR 0x02
+
+#define XPUB_MAINNET 0x0488b21e
+#define XPUB_TESTNET 0x043587cf
+#define XPUB_REGTEST 0xeab4fa05
+#define XPUB_SIMNET 0x0420bd3a
 
 static hns_apdu_pubkey_ctx_t *ctx = &global.pubkey;
 
@@ -109,6 +123,47 @@ create_p2pkh_addr(char *hrp, uint8_t *pubkey, uint8_t *addr) {
     THROW(HNS_CANNOT_ENCODE_ADDRESS);
 }
 
+static inline bool
+encode_xpub(ledger_xpub_t *xpub, uint8_t network, char *b58, size_t *b58_sz) {
+  uint8_t data[82];
+  uint8_t checksum[32];
+  uint8_t *buf = data;
+
+  switch(network) {
+    case MAINNET:
+      write_u32(&buf, XPUB_MAINNET, HNS_BE);
+      break;
+
+    case TESTNET:
+      write_u32(&buf, XPUB_TESTNET, HNS_BE);
+      break;
+
+    case REGTEST:
+      write_u32(&buf, XPUB_REGTEST, HNS_BE);
+      break;
+
+    case SIMNET:
+      write_u32(&buf, XPUB_SIMNET, HNS_BE);
+      break;
+
+    default:
+      THROW(HNS_CANNOT_ENCODE_XPUB);
+      break;
+  }
+
+  write_u8(&buf, xpub->depth);
+  write_bytes(&buf, xpub->fp, sizeof(xpub->fp));
+  write_u32(&buf, xpub->path[xpub->depth - 1], HNS_BE);
+  write_bytes(&buf, xpub->code, sizeof(xpub->code));
+  write_bytes(&buf, xpub->key, sizeof(xpub->key));
+  ledger_sha256(checksum, data, 78);
+  ledger_sha256(checksum, checksum, 32);
+  write_bytes(&buf, checksum, 4);
+
+  PRINTF("we in here\n");
+  return b58enc(b58, b58_sz, data, sizeof(data));
+}
+
 volatile uint16_t
 hns_apdu_get_public_key(
   uint8_t p1,
@@ -121,6 +176,12 @@ hns_apdu_get_public_key(
   switch(p1) {
     case DEFAULT:
     case CONFIRM:
+    case DEFAULT | TESTNET:
+    case DEFAULT | REGTEST:
+    case DEFAULT | SIMNET:
+    case CONFIRM | TESTNET:
+    case CONFIRM | REGTEST:
+    case CONFIRM | SIMNET:
       break;
     default:
       THROW(HNS_INCORRECT_P1);
@@ -136,28 +197,35 @@ hns_apdu_get_public_key(
       THROW(HNS_INCORRECT_P2);
   }
 
-  memset(ctx, 0, sizeof(hns_apdu_pubkey_ctx_t));
-
+  ledger_xpub_t xpub;
   uint8_t unsafe_path = 0;
   uint8_t long_path = 0;
-  uint8_t depth = 0;
-  uint32_t path[HNS_MAX_DEPTH];
+
+  memset(ctx, 0, sizeof(hns_apdu_pubkey_ctx_t));
 
   if (!ledger_pin_validated())
     THROW(HNS_SECURITY_CONDITION_NOT_SATISFIED);
 
-  if (!read_bip32_path(&buf, &len, &depth, path, &unsafe_path))
+  if (!read_bip32_path(&buf, &len, &xpub.depth, xpub.path, &unsafe_path))
     THROW(HNS_CANNOT_READ_BIP32_PATH);
 
-  if (depth > HNS_ADDR_DEPTH)
+  if (xpub.depth > HNS_ADDR_DEPTH)
     long_path = 1;
 
-  if ((p2 & ADDR) && (unsafe_path || long_path))
-    THROW(HNS_INCORRECT_P2);
+  // TODO: throw better exceptions
+  if (p2 & ADDR) {
+    if (xpub.depth != HNS_ADDR_DEPTH)
+      THROW(HNS_INCORRECT_P2);
+
+    if (unsafe_path)
+      THROW(HNS_INCORRECT_P2);
+
+    if (long_path)
+      THROW(HNS_INCORRECT_P2);
+  }
 
   // Write pubkey to output buffer.
-  ledger_xpub_t xpub;
-  ledger_ecdsa_derive_xpub(path, depth, &xpub);
+  ledger_ecdsa_derive_xpub(&xpub);
   len = write_bytes(&out, xpub.key, sizeof(xpub.key));
 
   // Write xpub details to output buffer, or write 0x0000.
@@ -168,13 +236,14 @@ hns_apdu_get_public_key(
     len += write_u16(&out, 0, HNS_LE);
   }
 
-  // Write addr to output buffer, or write 0x00.
+  // Write addr to output
+  // buffer, or write 0x00.
   uint8_t addr[42];
 
   if (p2 & ADDR) {
     char hrp[2];
 
-    switch(path[1]) {
+    switch(xpub.path[1]) {
       case HNS_MAINNET:
         strcpy(hrp, "hs");
         break;
@@ -202,8 +271,6 @@ hns_apdu_get_public_key(
     len += write_u8(&out, 0);
   }
 
-// TODO(boymanjor): Display base58
-// encoded string for xpub confirmation.
 #if defined(TARGET_NANOS)
   if ((p1 & CONFIRM) || unsafe_path || long_path) {
     memmove(ctx->store, g_ledger_apdu_buffer, len);
@@ -226,6 +293,16 @@ hns_apdu_get_public_key(
       memmove(ctx->full_str, addr, 42);
       ctx->full_str[42] = '\0';
       ctx->full_str_len = 42;
+    } else if (p2 & XPUB) {
+      uint8_t network = p1 & NETWORK_MASK;
+      size_t sz;
+
+      if (!encode_xpub(&xpub, network, ctx->full_str, &sz))
+        THROW(HNS_CANNOT_ENCODE_XPUB);
+
+      memmove(ctx->confirm_str, "Xpub", 5);
+      ctx->full_str[sz] = '\0';
+      ctx->full_str_len = sz;
     } else {
       memmove(ctx->confirm_str, "Public Key", 11);
       bin2hex(ctx->full_str, xpub.key, sizeof(xpub.key));

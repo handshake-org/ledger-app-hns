@@ -90,11 +90,17 @@ reconstruct the extended public key at the specified level
 in the HD tree.
 
 The first instruction param (P1) can be used to require on-device
-confirmation. The second device param indicates which, if any,
-additional details to return, i.e. extended public details and/or
-address. If confirmation is turned on, and an address is generated,
-the address will be displayed on screen. Otherwise, the public key
-will be displayed for confirmation.
+confirmation by setting the least significant bit. The next two
+lowest bits are used to signify the network. The network flag is
+only used for xpub confirmation. Address generation will parse the
+network from the derivation path. If an unknown coin type is passed
+during address generation, an error will be returned.
+
+The second instruction param indicates which, if any, additional details
+to return, i.e. extended public details and/or address. If confirmation
+is turned on, and an address is generated, the address will be displayed
+on screen. The next precedence will be given to extended public key
+details. Otherwise, the public key will be displayed for confirmation.
 
 >NOTE: an on-device warning will be displayed for non-hardened
 derivation at the BIP44 account level or above. It will also be
@@ -111,6 +117,12 @@ displayed for derivations past the address index level.
 
 - 0x00 = No confimation
 - 0x01 = Require confirmation
+
+0x06 is used as a mask to check second and third least significant bits.
+- 0x00 = Mainnet
+- 0x02 = Testnet
+- 0x04 = Regtest
+- 0x06 = Simnet
 
 \* P2:
 - 0x00 = Public key only

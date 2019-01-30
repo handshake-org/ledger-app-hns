@@ -8,8 +8,8 @@
 #include "ledger.h"
 
 #define HNS_APP_NAME "HANDSHAKE"
-#define HNS_MAX_INPUTS 15
-#define HNS_MAX_DEPTH 10
+#define HNS_MAX_INPUTS 13
+#define HNS_MAX_DEPTH LEDGER_MAX_DEPTH
 #define HNS_ADDR_DEPTH 5
 
 #define HNS_HARDENED 0x80000000
@@ -298,8 +298,8 @@ write_u16(uint8_t ** buf, uint16_t u16, bool be) {
     return 0;
 
   if (be) {
-    (*buf)[0] = (uint8_t)u16;
-    (*buf)[1] = (uint8_t)(u16 >> 8);
+    (*buf)[0] = (uint8_t)(u16 >> 8);
+    (*buf)[1] = (uint8_t)u16;
   } else {
     memmove(*buf, &u16, 2);
   }
@@ -315,10 +315,10 @@ write_u32(uint8_t ** buf, uint32_t u32, bool be) {
     return 0;
 
   if (be) {
-    (*buf)[0] = (uint8_t)u32;
-    (*buf)[1] = (uint8_t)(u32 >> 8);
-    (*buf)[2] = (uint8_t)(u32 >> 16);
-    (*buf)[3] = (uint8_t)(u32 >> 24);
+    (*buf)[0] = (uint8_t)(u32 >> 24);
+    (*buf)[1] = (uint8_t)(u32 >> 16);
+    (*buf)[2] = (uint8_t)(u32 >> 8);
+    (*buf)[3] = (uint8_t)u32;
   } else {
     memmove(*buf, &u32, 4);
   }

@@ -1,11 +1,14 @@
 #ifndef _HNS_LEDGER_H
 #define _HNS_LEDGER_H
 
+#include <stdbool.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include "os.h"
 #include "os_io_seproxyhal.h"
 
 #define LEDGER_ASYNCH_REPLY IO_ASYNCH_REPLY
+#define LEDGER_MAX_DEPTH 10
 #define LEDGER_RESET EXCEPTION_IO_RESET
 #define LEDGER_RETURN_AFTER_TX IO_RETURN_AFTER_TX
 
@@ -38,6 +41,8 @@ typedef struct ledger_xpub_s {
   uint8_t code[32];
   uint8_t key[33];
   uint8_t fp[4];
+  uint8_t depth;
+  uint32_t path[LEDGER_MAX_DEPTH];
 } ledger_xpub_t;
 
 extern uint8_t *g_ledger_apdu_buffer;
@@ -94,12 +99,11 @@ ledger_ui_init(void);
 void
 ledger_ui_idle(void);
 
+bool
+ledger_sha256(void *digest, const void *data, size_t data_sz);
+
 void
-ledger_ecdsa_derive_xpub(
-  uint32_t *path,
-  uint8_t depth,
-  ledger_xpub_t *xpub
-);
+ledger_ecdsa_derive_xpub(ledger_xpub_t *xpub);
 
 void
 ledger_ecdsa_sign(
