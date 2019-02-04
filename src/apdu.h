@@ -39,6 +39,7 @@
 #define HNS_INCORRECT_PARSER_STATE 0x21
 #define HNS_INCORRECT_SIGNATURE_PATH 0x22
 #define HNS_CANNOT_ENCODE_XPUB 0x23
+#define HNS_INCORRECT_INPUTS_LEN 0x24
 
 typedef struct hns_input_s {
   uint8_t prev[36];

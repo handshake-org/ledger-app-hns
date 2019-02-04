@@ -127,6 +127,9 @@ parse(uint16_t *len, volatile uint8_t *buf, bool init) {
     if (!read_u8(&buf, len, &ctx->ins_len))
       THROW(HNS_CANNOT_READ_INPUTS_LEN);
 
+    if (ctx->ins_len > HNS_MAX_INPUTS)
+      THROW(HNS_INCORRECT_INPUTS_LEN);
+
     if (!read_u8(&buf, len, &ctx->outs_len))
       THROW(HNS_CANNOT_READ_OUTPUTS_LEN);
 
