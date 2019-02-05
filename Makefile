@@ -15,11 +15,7 @@ APP_PATH_PARAMS = --path ""
 APP_LOAD_PARAMS = --curve secp256k1 $(COMMON_LOAD_PARAMS)
 APP_LOAD_PARAMS += $(APP_LOAD_FLAGS) $(APP_PATH_PARAMS)
 
-ifeq ($(TARGET_NAME),TARGET_BLUE)
-ICONNAME=blue_icon_hns.gif
-else
 ICONNAME=nanos_icon_hns.gif
-endif
 
 ################
 # Default rule #
