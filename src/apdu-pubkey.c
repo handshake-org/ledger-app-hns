@@ -26,94 +26,10 @@
 #define XPUB_REGTEST 0xeab4fa05
 #define XPUB_SIMNET 0x0420bd3a
 
-static hns_apdu_pubkey_ctx_t *ctx = &global.pubkey;
-
-#if defined(TARGET_NANOS)
-static const bagl_element_t approve[] = {
-  LEDGER_UI_BACKGROUND(),
-  LEDGER_UI_ICON_LEFT(0x00, BAGL_GLYPH_ICON_CROSS),
-  LEDGER_UI_ICON_RIGHT(0x00, BAGL_GLYPH_ICON_CHECK),
-  LEDGER_UI_TEXT(0x00, 0, 12, 128, "OK?")
-};
-
-static const bagl_element_t compare[] = {
-  LEDGER_UI_BACKGROUND(),
-  LEDGER_UI_ICON_LEFT(0x01, BAGL_GLYPH_ICON_LEFT),
-  LEDGER_UI_ICON_RIGHT(0x02, BAGL_GLYPH_ICON_RIGHT),
-  LEDGER_UI_TEXT(0x00, 0, 12, 128, global.pubkey.confirm_str),
-  LEDGER_UI_TEXT(0x00, 0, 26, 128, global.pubkey.part_str)
-};
-
-static unsigned int
-approve_button(unsigned int mask, unsigned int ctr) {
-  switch (mask) {
-    case BUTTON_EVT_RELEASED | BUTTON_LEFT: {
-      memset(g_ledger_apdu_buffer, 0, g_ledger_apdu_buffer_size);
-      ledger_apdu_exchange(LEDGER_RETURN_AFTER_TX, 0, HNS_USER_REJECTED);
-      ledger_ui_idle();
-      break;
-    }
-
-    case BUTTON_EVT_RELEASED | BUTTON_RIGHT: {
-      memmove(g_ledger_apdu_buffer, ctx->store, ctx->store_len);
-      ledger_apdu_exchange(LEDGER_RETURN_AFTER_TX, ctx->store_len, HNS_OK);
-      ledger_ui_idle();
-      break;
-    }
-  }
-
-  return 0;
-}
-
-static unsigned int
-compare_button(unsigned int mask, unsigned int ctr) {
-  switch (mask) {
-    case BUTTON_LEFT:
-    case BUTTON_EVT_FAST | BUTTON_LEFT: {
-      if (ctx->full_str_pos > 0)
-        ctx->full_str_pos--;
-
-      memmove(ctx->part_str, ctx->full_str + ctx->full_str_pos, 12);
-      UX_REDISPLAY();
-      break;
-    }
-
-    case BUTTON_RIGHT:
-    case BUTTON_EVT_FAST | BUTTON_RIGHT: {
-      if (ctx->full_str_pos < ctx->full_str_len - 12)
-        ctx->full_str_pos++;
-
-      memmove(ctx->part_str, ctx->full_str + ctx->full_str_pos, 12);
-      UX_REDISPLAY();
-      break;
-    }
-
-    case BUTTON_EVT_RELEASED | BUTTON_LEFT | BUTTON_RIGHT: {
-      UX_DISPLAY(approve, NULL);
-      break;
-    }
-  }
-
-  return 0;
-}
-
-static const bagl_element_t *
-compare_prepro(const bagl_element_t *e) {
-  switch (e->component.userid) {
-    case 1:
-      return (ctx->full_str_pos == 0) ? NULL : e;
-
-    case 2:
-      return (ctx->full_str_pos == ctx->full_str_len - 12) ? NULL : e;
-
-    default:
-      return e;
-  }
-}
-#endif
+static ledger_ui_ctx_t *ctx = &g_ledger.ui;
 
 static inline void
-create_p2pkh_addr(char *hrp, uint8_t *pubkey, uint8_t *addr) {
+encode_addr(char *hrp, uint8_t *pubkey, char *addr) {
   uint8_t hash[20];
 
   if (blake2b(hash, 20, NULL, 0, pubkey, 33))
@@ -124,7 +40,12 @@ create_p2pkh_addr(char *hrp, uint8_t *pubkey, uint8_t *addr) {
 }
 
 static inline bool
-encode_xpub(ledger_xpub_t *xpub, uint8_t network, char *b58, size_t *b58_sz) {
+encode_xpub(
+  ledger_ecdsa_xpub_t *xpub,
+  uint8_t network,
+  char *b58,
+  size_t *b58_sz
+) {
   uint8_t data[82];
   uint8_t checksum[32];
   uint8_t *buf = data;
@@ -160,7 +81,6 @@ encode_xpub(ledger_xpub_t *xpub, uint8_t network, char *b58, size_t *b58_sz) {
   ledger_sha256(checksum, checksum, 32);
   write_bytes(&buf, checksum, 4);
 
-  PRINTF("we in here\n");
   return b58enc(b58, b58_sz, data, sizeof(data));
 }
 
@@ -197,13 +117,13 @@ hns_apdu_get_public_key(
       THROW(HNS_INCORRECT_P2);
   }
 
-  ledger_xpub_t xpub;
+  ledger_ecdsa_xpub_t xpub;
   uint8_t unsafe_path = 0;
   uint8_t long_path = 0;
 
-  memset(ctx, 0, sizeof(hns_apdu_pubkey_ctx_t));
+  memset(ctx, 0, sizeof(ledger_ui_ctx_t));
 
-  if (!ledger_pin_validated())
+  if (!ledger_unlocked())
     THROW(HNS_SECURITY_CONDITION_NOT_SATISFIED);
 
   if (!read_bip32_path(&buf, &len, &xpub.depth, xpub.path, &unsafe_path))
@@ -236,9 +156,8 @@ hns_apdu_get_public_key(
     len += write_u16(&out, 0, HNS_LE);
   }
 
-  // Write addr to output
-  // buffer, or write 0x00.
-  uint8_t addr[42];
+  // Write addr to output buffer, or write 0x00.
+  char addr[75];
 
   if (p2 & ADDR) {
     char hrp[2];
@@ -265,7 +184,7 @@ hns_apdu_get_public_key(
         break;
     }
 
-    create_p2pkh_addr(hrp, xpub.key, addr);
+    encode_addr(hrp, xpub.key, addr);
     len += write_varbytes(&out, addr, sizeof(addr));
   } else {
     len += write_u8(&out, 0);
@@ -273,49 +192,37 @@ hns_apdu_get_public_key(
 
 #if defined(TARGET_NANOS)
   if ((p1 & CONFIRM) || unsafe_path || long_path) {
-    memmove(ctx->store, g_ledger_apdu_buffer, len);
-    ctx->store_len = len;
+    char *header = NULL;
+    char *message = NULL;
+
+    ledger_apdu_cache_write(len);
 
     if (unsafe_path) {
-      memmove(ctx->confirm_str, "WARNING", 8);
-      memmove(ctx->full_str,
-        "Unhardened derivation above BIP44 change level is unsafe.", 57);
-      ctx->full_str[57] = '\0';
-      ctx->full_str_len = 57;
+      header = "WARNING";
+      message = "Unhardened derivation above BIP44 change level is unsafe.";
     } else if(long_path) {
-      memmove(ctx->confirm_str, "WARNING", 8);
-      memmove(ctx->full_str,
-        "Derivation passes BIP44 address level.", 38);
-      ctx->full_str[38] = '\0';
-      ctx->full_str_len = 38;
+      header = "WARNING";
+      message = "Derivation passes BIP44 address level.";
     } else if (p2 & ADDR) {
-      memmove(ctx->confirm_str, "Address", 8);
-      memmove(ctx->full_str, addr, 42);
-      ctx->full_str[42] = '\0';
-      ctx->full_str_len = 42;
+      header = "Address";
+      message = addr;
     } else if (p2 & XPUB) {
-      uint8_t network = p1 & NETWORK_MASK;
-      size_t sz;
+      uint8_t message_sz = sizeof(ctx->message);
+      header = "XPUB";
+      message = ctx->message;
 
-      if (!encode_xpub(&xpub, network, ctx->full_str, &sz))
+      if (!encode_xpub(&xpub, p1 & NETWORK_MASK, message, &message_sz))
         THROW(HNS_CANNOT_ENCODE_XPUB);
 
-      memmove(ctx->confirm_str, "Xpub", 5);
-      ctx->full_str[sz] = '\0';
-      ctx->full_str_len = sz;
     } else {
-      memmove(ctx->confirm_str, "Public Key", 11);
-      bin2hex(ctx->full_str, xpub.key, sizeof(xpub.key));
-      ctx->full_str[66] = '\0';
-      ctx->full_str_len = 66;
+      header = "Public Key";
+      message = ctx->message;
+      bin2hex(message, xpub.key, sizeof(xpub.key));
     }
 
-    memmove(ctx->part_str, ctx->full_str, 12);
-    ctx->part_str[12] = '\0';
-    ctx->full_str_pos = 0;
+    if(!ledger_ui_update(header, message, flags))
+      THROW(EXCEPTION);
 
-    UX_DISPLAY(compare, compare_prepro);
-    *flags |= LEDGER_ASYNCH_REPLY;
     return 0;
   }
 #endif

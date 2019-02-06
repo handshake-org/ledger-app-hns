@@ -19,7 +19,7 @@ hns_apdu_get_app_version(
   if(len != 0)
     THROW(HNS_INCORRECT_LC);
 
-  if (!ledger_pin_validated())
+  if (!ledger_unlocked())
     THROW(HNS_SECURITY_CONDITION_NOT_SATISFIED);
 
   out[0] = HNS_APP_MAJOR_VERSION;

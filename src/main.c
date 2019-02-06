@@ -7,7 +7,7 @@
 #define INS_PUBKEY 0x42
 #define INS_SIGNATURE 0x44
 
-global_apdu_ctx_t global;
+ledger_ctx_t g_ledger;
 
 static inline void
 hns_boot(void) {
@@ -62,7 +62,7 @@ hns_loop() {
         THROW(LEDGER_RESET);
       }
       CATCH_OTHER(e) {
-        memset(buf, 0, g_ledger_apdu_buffer_size);
+        ledger_apdu_buffer_clear();
         sw = (e < 0x100) ? 0x6f00|e : e;
         len = 0;
       }

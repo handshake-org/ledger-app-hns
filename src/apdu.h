@@ -1,7 +1,6 @@
 #ifndef _HNS_APDU_H
 #define _HNS_APDU_H
 
-#include <stdbool.h>
 #include <stdint.h>
 #include "utils.h"
 
@@ -40,48 +39,6 @@
 #define HNS_INCORRECT_SIGNATURE_PATH 0x22
 #define HNS_CANNOT_ENCODE_XPUB 0x23
 #define HNS_INCORRECT_INPUTS_LEN 0x24
-
-typedef struct hns_input_s {
-  uint8_t prev[36];
-  uint8_t val[8];
-  uint8_t seq[4];
-} hns_input_t;
-
-typedef struct hns_apdu_pubkey_ctx_s {
-  uint8_t store[114];
-  uint8_t store_len;
-  uint8_t confirm_str[20];
-  uint8_t part_str[13];
-  uint8_t full_str[113];
-  uint8_t full_str_len;
-  uint8_t full_str_pos;
-} hns_apdu_pubkey_ctx_t;
-
-typedef struct hns_apdu_signature_ctx_t {
-  bool sign_ready;
-  bool skip_input;
-  hns_input_t ins[HNS_MAX_INPUTS];
-  uint8_t ins_len;
-  uint8_t outs_len;
-  uint8_t ver[4];
-  uint8_t prevs[32];
-  uint8_t seqs[32];
-  uint8_t outs[32];
-  uint8_t txid[32];
-  uint8_t locktime[4];
-  uint8_t sig[73];
-  uint8_t part_str[13];
-  uint8_t full_str[65];
-  uint8_t full_str_len;
-  uint8_t full_str_pos;
-} hns_apdu_signature_ctx_t;
-
-typedef union {
-  hns_apdu_pubkey_ctx_t pubkey;
-  hns_apdu_signature_ctx_t signature;
-} global_apdu_ctx_t;
-
-extern global_apdu_ctx_t global;
 
 volatile uint16_t
 hns_apdu_get_app_version(

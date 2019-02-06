@@ -2,39 +2,126 @@
 #include "ledger.h"
 #include "libbase58.h"
 
-typedef cx_ecfp_private_key_t ledger_private_key_t;
-typedef cx_ecfp_public_key_t ledger_public_key_t;
-
-uint8_t *g_ledger_apdu_buffer;
-uint16_t g_ledger_apdu_buffer_size;
-uint16_t g_ledger_ui_step;
-uint16_t g_ledger_ui_step_count;
+static uint8_t *g_ledger_apdu_buffer;
+static uint16_t g_ledger_apdu_buffer_size;
+static uint8_t g_ledger_apdu_cache[114];
+static uint8_t g_ledger_apdu_cache_size;
+static uint8_t g_ledger_apdu_cache_len;
 
 uint8_t *
 ledger_init(void) {
   g_ledger_apdu_buffer = G_io_apdu_buffer;
   g_ledger_apdu_buffer_size = sizeof(G_io_apdu_buffer);
-  os_memset(G_io_apdu_buffer, 0, g_ledger_apdu_buffer_size);
+  g_ledger_apdu_cache_size = sizeof(g_ledger_apdu_cache);
+  g_ledger_apdu_cache_len = 0;
+
+  memset(g_ledger_apdu_buffer, 0, g_ledger_apdu_buffer_size);
+  memset(g_ledger_apdu_cache, 0, g_ledger_apdu_cache_size);
 
   io_seproxyhal_init();
+
   USB_power(false);
   USB_power(true);
+
   ledger_ui_init();
 
   return G_io_apdu_buffer;
 }
 
-typedef struct ledger_bip32_node_s {
+void
+ledger_boot() {
+  os_boot();
+}
+
+void
+ledger_reset() {
+  reset();
+}
+
+void
+ledger_exit(uint32_t code) {
+  BEGIN_TRY_L(exit) {
+    TRY_L(exit) {
+      os_sched_exit(code);
+    }
+    FINALLY_L(exit);
+  }
+  END_TRY_L(exit);
+}
+
+uint32_t
+ledger_unlocked() {
+  return os_global_pin_is_validated();
+}
+
+void
+ledger_apdu_buffer_clear() {
+  memset(g_ledger_apdu_buffer, 0, g_ledger_apdu_buffer_size);
+}
+
+bool
+ledger_apdu_cache_write(uint8_t len) {
+  if (len < 1)
+    return false;
+
+  if (len > sizeof(g_ledger_apdu_cache))
+    return false;
+
+  memmove(g_ledger_apdu_cache, g_ledger_apdu_buffer, len);
+
+  g_ledger_apdu_cache_len = len;
+
+  ledger_apdu_buffer_clear();
+
+  return true;
+}
+
+uint8_t
+ledger_apdu_cache_flush(uint8_t len) {
+  uint8_t cache_len = g_ledger_apdu_cache_len;
+
+  if (len > 0)
+    memmove(g_ledger_apdu_buffer + cache_len, g_ledger_apdu_buffer, len);
+
+  memmove(g_ledger_apdu_buffer, g_ledger_apdu_cache, cache_len);
+
+  ledger_apdu_cache_clear();
+
+  return cache_len;
+}
+
+uint8_t
+ledger_apdu_cache_check() {
+  return g_ledger_apdu_cache_len;
+}
+
+void
+ledger_apdu_cache_clear() {
+  memset(g_ledger_apdu_cache, 0, g_ledger_apdu_cache_size);
+  g_ledger_apdu_cache_len = 0;
+}
+
+uint16_t
+ledger_apdu_exchange(uint8_t flags, uint16_t len, uint16_t sw) {
+  if (sw) {
+    g_ledger_apdu_buffer[len++] = sw >> 8;
+    g_ledger_apdu_buffer[len++] = sw & 0xff;
+  }
+
+  return io_exchange(CHANNEL_APDU | flags, len);
+}
+
+typedef struct ledger_ecdsa_bip32_node_s {
   uint8_t chaincode[32];
-  ledger_private_key_t prv;
-  ledger_public_key_t pub;
-} ledger_bip32_node_t;
+  cx_ecfp_private_key_t prv;
+  cx_ecfp_public_key_t pub;
+} ledger_ecdsa_bip32_node_t;
 
 static void
 ledger_ecdsa_derive_node(
   uint32_t *path,
   uint8_t depth,
-  ledger_bip32_node_t *n
+  ledger_ecdsa_bip32_node_t *n
 ) {
   uint8_t priv[32];
   os_perso_derive_node_bip32(CX_CURVE_256K1, path, depth, priv, n->chaincode);
@@ -43,28 +130,10 @@ ledger_ecdsa_derive_node(
   n->pub.W[0] = n->pub.W[64] & 1 ? 0x03 : 0x02;
 }
 
-bool
-ledger_sha256(void *digest, const void *data, size_t data_sz) {
-  if (digest == NULL)
-    return false;
-
-  if (data == NULL)
-    return false;
-
-  if (data_sz < 1)
-    return false;
-
-  cx_sha256_t sha256;
-  cx_sha256_init(&sha256);
-  cx_hash(&sha256.header, CX_LAST, data, data_sz, digest);
-
-  return true;
-}
-
 void
-ledger_ecdsa_derive_xpub(ledger_xpub_t *xpub) {
+ledger_ecdsa_derive_xpub(ledger_ecdsa_xpub_t *xpub) {
   // Derive child node and store pubkey & chain code.
-  ledger_bip32_node_t n;
+  ledger_ecdsa_bip32_node_t n;
   ledger_ecdsa_derive_node(xpub->path, xpub->depth, &n);
   memmove(xpub->key, n.pub.W, sizeof(xpub->key));
   memmove(xpub->code, n.chaincode, sizeof(xpub->code));
@@ -99,10 +168,28 @@ ledger_ecdsa_sign(
   size_t hash_len,
   uint8_t *sig
 ) {
-  ledger_bip32_node_t n;
+  ledger_ecdsa_bip32_node_t n;
   ledger_ecdsa_derive_node(path, depth, &n);
   cx_ecdsa_sign(&n.prv, CX_RND_RFC6979 | CX_LAST, CX_SHA256,
     hash, hash_len, sig, NULL);
+}
+
+bool
+ledger_sha256(void *digest, const void *data, size_t data_sz) {
+  if (digest == NULL)
+    return false;
+
+  if (data == NULL)
+    return false;
+
+  if (data_sz < 1)
+    return false;
+
+  cx_sha256_t sha256;
+  cx_sha256_init(&sha256);
+  cx_hash(&sha256.header, CX_LAST, data, data_sz, digest);
+
+  return true;
 }
 
 /**
@@ -139,12 +226,7 @@ io_event(uint8_t channel) {
       break;
 
     case SEPROXYHAL_TAG_TICKER_EVENT:
-      UX_TICKER_EVENT(G_io_seproxyhal_spi_buffer, {
-        if (g_ledger_ui_step_count > 0 && UX_ALLOWED)
-          g_ledger_ui_step = (g_ledger_ui_step + 1) % g_ledger_ui_step_count;
-
-        UX_REDISPLAY();
-      });
+      UX_TICKER_EVENT(G_io_seproxyhal_spi_buffer, {});
       break;
 
     case SEPROXYHAL_TAG_STATUS_EVENT:

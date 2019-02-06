@@ -8,7 +8,7 @@
 #include "ledger.h"
 
 #define HNS_APP_NAME "HANDSHAKE"
-#define HNS_MAX_INPUTS 13
+#define HNS_MAX_INPUTS 15
 #define HNS_MAX_DEPTH LEDGER_MAX_DEPTH
 #define HNS_ADDR_DEPTH 5
 
