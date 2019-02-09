@@ -1,3 +1,8 @@
+/**
+ * utils.h - helper constants and functions for hns
+ * Copyright (c) 2018, Boyma Fahnbulleh (MIT License).
+ * https://github.com/boymanjor/ledger-app-hns
+ */
 #ifndef _HNS_UTILS_H
 #define _HNS_UTILS_H
 
@@ -7,26 +12,46 @@
 #include <string.h>
 #include "ledger.h"
 
+/**
+ * General constants.
+ */
 #define HNS_APP_NAME "HANDSHAKE"
 #define HNS_MAX_INPUTS 15
-#define HNS_MAX_DEPTH LEDGER_MAX_DEPTH
-#define HNS_ADDR_DEPTH 5
 
+/**
+ * Constants for parsing BIP44 paths.
+ */
 #define HNS_HARDENED 0x80000000
-#define HNS_PURPOSE HNS_HARDENED | 44
-#define HNS_MAINNET HNS_HARDENED | 5353
-#define HNS_TESTNET HNS_HARDENED | 5354
-#define HNS_REGTEST HNS_HARDENED | 5355
-#define HNS_SIMNET  HNS_HARDENED | 5356
-#define HNS_SAFE_UNHARDENED_LEVEL 3
+#define HNS_BIP44_ACCT_DEPTH 3
+#define HNS_BIP44_ADDR_DEPTH 5
+#define HNS_BIP44_PURPOSE HNS_HARDENED | 44
+#define HNS_BIP44_MAINNET HNS_HARDENED | 5353
+#define HNS_BIP44_TESTNET HNS_HARDENED | 5354
+#define HNS_BIP44_REGTEST HNS_HARDENED | 5355
+#define HNS_BIP44_SIMNET  HNS_HARDENED | 5356
+#define HNS_MAX_DEPTH LEDGER_MAX_DEPTH
 
+/**
+ * Used in buffer io functions to specify big-endianness.
+ */
 #define HNS_BE true
+
+/**
+ * Used in buffer io functions to specify little-endianness.
+ */
 #define HNS_LE false
 
+/**
+ * Varint
+ */
 typedef uint32_t hns_varint_t;
 
+/**
+ * Besides `bin_to_hex`, the following functions are buffer io related.
+ */
+
 static inline void
-bin2hex(uint8_t * hex, uint8_t * bin, uint8_t len) {
+bin_to_hex(uint8_t * hex, uint8_t * bin, uint8_t len) {
   static uint8_t const lookup[] = "0123456789abcdef";
   uint8_t i;
 
@@ -246,12 +271,12 @@ read_varbytes(
 }
 
 static inline bool
-read_bip32_path(
+read_bip44_path(
   uint8_t ** buf,
   uint8_t * len,
   uint8_t * depth,
   uint32_t * path,
-  uint8_t * unsafe_path
+  uint8_t * non_standard
 ) {
   if (*len < 1)
     return false;
@@ -265,6 +290,9 @@ read_bip32_path(
     return false;
   }
 
+  if (*depth > HNS_BIP44_ADDR_DEPTH)
+    *non_standard = 1;
+
   uint8_t level;
 
   for (level = 0; level < *depth; level++) {
@@ -274,8 +302,27 @@ read_bip32_path(
       return false;
     }
 
-    if (level < HNS_SAFE_UNHARDENED_LEVEL && !(path[level] & HNS_HARDENED))
-      *unsafe_path = 1;
+    uint32_t index = path[level];
+
+    switch(level) {
+      case 0:
+        if (index != (HNS_BIP44_PURPOSE))
+          *non_standard = 1;
+        break;
+
+      case 1:
+        if (index < (HNS_BIP44_MAINNET) || index > (HNS_BIP44_SIMNET))
+          *non_standard = 1;
+        break;
+
+      case 2:
+        if (!(index & HNS_HARDENED))
+          *non_standard = 1;
+        break;
+
+      default:
+        break;
+    }
   }
 
   return true;

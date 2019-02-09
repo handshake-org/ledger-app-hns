@@ -1,22 +1,39 @@
+/**
+ * main.c - the entry point of the app
+ * Copyright (c) 2018, Boyma Fahnbulleh (MIT License).
+ * https://github.com/boymanjor/ledger-app-hns
+ */
 #include "apdu.h"
 #include "ledger.h"
 #include "utils.h"
 
+/**
+ * APDU Header constants.
+ */
 #define CLA_GENERAL 0xe0
 #define INS_FIRMWARE 0x40
 #define INS_PUBKEY 0x42
 #define INS_SIGNATURE 0x44
 
+/**
+ * Global ledger constant.
+ */
 ledger_ctx_t g_ledger;
 
+/**
+ * Boots the ledger device.
+ */
 static inline void
 hns_boot(void) {
   asm volatile("cpsie i");
   ledger_boot();
 }
 
+/**
+ * APDU handler loop.
+ */
 static inline void
-hns_loop() {
+hns_loop(void) {
   volatile uint8_t *buf = ledger_init();
   volatile uint8_t flags = 0;
   volatile uint16_t len = 0;
@@ -72,6 +89,9 @@ hns_loop() {
   }
 }
 
+/**
+ * Main loop of the application.
+ */
 static inline void
 hns_main(void) {
   BEGIN_TRY {

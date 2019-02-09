@@ -1,12 +1,44 @@
+/**
+ * ledger.c - wrapper for the Ledger Nanos Secure SDK
+ * Copyright (c) 2018, Boyma Fahnbulleh (MIT License).
+ * https://github.com/boymanjor/ledger-app-hns
+ */
 #include <stdbool.h>
 #include "ledger.h"
-#include "libbase58.h"
 
+/**
+ * IO exchange buffer for the APDU protocol messages.
+ */
 static uint8_t *g_ledger_apdu_buffer;
+
+/**
+ * Size of the IO exchange buffer.
+ */
 static uint16_t g_ledger_apdu_buffer_size;
+
+/**
+ * Cache buffer used to save data between APDU calls.
+ */
 static uint8_t g_ledger_apdu_cache[114];
+
+/**
+ * Total size of the cache buffer.
+ */
 static uint8_t g_ledger_apdu_cache_size;
+
+/**
+ * Length of data currently stored in the cache.
+ */
 static uint8_t g_ledger_apdu_cache_len;
+
+/**
+ * ECDSA BIP32 HD node.
+ */
+typedef struct ledger_ecdsa_bip32_node_s {
+  uint8_t chaincode[32];
+  cx_ecfp_private_key_t prv;
+  cx_ecfp_public_key_t pub;
+} ledger_ecdsa_bip32_node_t;
 
 uint8_t *
 ledger_init(void) {
@@ -29,12 +61,12 @@ ledger_init(void) {
 }
 
 void
-ledger_boot() {
+ledger_boot(void) {
   os_boot();
 }
 
 void
-ledger_reset() {
+ledger_reset(void) {
   reset();
 }
 
@@ -50,26 +82,29 @@ ledger_exit(uint32_t code) {
 }
 
 uint32_t
-ledger_unlocked() {
+ledger_unlocked(void) {
   return os_global_pin_is_validated();
 }
 
 void
-ledger_apdu_buffer_clear() {
+ledger_apdu_buffer_clear(void) {
   memset(g_ledger_apdu_buffer, 0, g_ledger_apdu_buffer_size);
 }
 
 bool
-ledger_apdu_cache_write(uint8_t len) {
-  if (len < 1)
+ledger_apdu_cache_write(uint8_t *src, uint8_t src_len) {
+  if (src_len < 1)
     return false;
 
-  if (len > sizeof(g_ledger_apdu_cache))
+  if (src_len > g_ledger_apdu_cache_size)
     return false;
 
-  memmove(g_ledger_apdu_cache, g_ledger_apdu_buffer, len);
+  if (src == NULL)
+    src = g_ledger_apdu_buffer;
 
-  g_ledger_apdu_cache_len = len;
+  memmove(g_ledger_apdu_cache, src, src_len);
+
+  g_ledger_apdu_cache_len = src_len;
 
   ledger_apdu_buffer_clear();
 
@@ -77,13 +112,23 @@ ledger_apdu_cache_write(uint8_t len) {
 }
 
 uint8_t
-ledger_apdu_cache_flush(uint8_t len) {
+ledger_apdu_cache_flush(uint8_t offset) {
+  uint8_t *cache = g_ledger_apdu_cache;
+  uint8_t *buffer = g_ledger_apdu_buffer;
   uint8_t cache_len = g_ledger_apdu_cache_len;
 
-  if (len > 0)
-    memmove(g_ledger_apdu_buffer + cache_len, g_ledger_apdu_buffer, len);
+  if (offset + cache_len > g_ledger_apdu_buffer_size)
+    return 0;
 
-  memmove(g_ledger_apdu_buffer, g_ledger_apdu_cache, cache_len);
+  if (offset < 0)
+    return 0;
+
+  if (offset > 0) {
+    buffer += 5; // Don't overwrite APDU header.
+    memmove(buffer + cache_len, buffer, offset);
+  }
+
+  memmove(buffer, cache, cache_len);
 
   ledger_apdu_cache_clear();
 
@@ -91,12 +136,12 @@ ledger_apdu_cache_flush(uint8_t len) {
 }
 
 uint8_t
-ledger_apdu_cache_check() {
+ledger_apdu_cache_check(void) {
   return g_ledger_apdu_cache_len;
 }
 
 void
-ledger_apdu_cache_clear() {
+ledger_apdu_cache_clear(void) {
   memset(g_ledger_apdu_cache, 0, g_ledger_apdu_cache_size);
   g_ledger_apdu_cache_len = 0;
 }
@@ -110,12 +155,6 @@ ledger_apdu_exchange(uint8_t flags, uint16_t len, uint16_t sw) {
 
   return io_exchange(CHANNEL_APDU | flags, len);
 }
-
-typedef struct ledger_ecdsa_bip32_node_s {
-  uint8_t chaincode[32];
-  cx_ecfp_private_key_t prv;
-  cx_ecfp_public_key_t pub;
-} ledger_ecdsa_bip32_node_t;
 
 static void
 ledger_ecdsa_derive_node(
@@ -175,7 +214,7 @@ ledger_ecdsa_sign(
 }
 
 bool
-ledger_sha256(void *digest, const void *data, size_t data_sz) {
+ledger_sha256(const void *data, size_t data_sz, void *digest) {
   if (digest == NULL)
     return false;
 
@@ -193,7 +232,10 @@ ledger_sha256(void *digest, const void *data, size_t data_sz) {
 }
 
 /**
- * BOLOS SDK variable declarations
+ * BOLOS SDK variable definitions.
+ *
+ * All variables below this point are never called within the app
+ * source code, but are necessary for the SDK to function properly.
  *
  * For more details see:
  * https://github.com/ledgerhq/nanos-secure-sdk
@@ -203,11 +245,13 @@ uint8_t G_io_seproxyhal_spi_buffer[IO_SEPROXYHAL_BUFFER_SIZE_B];
 ux_state_t ux;
 
 /**
- * BOLOS SDK function declarations
+ * BOLOS SDK function definitions.
+ *
+ * All functions below this point are never called within the app
+ * source code, but are necessary for the SDK to function properly.
  *
  * For more details see:
  * https://github.com/ledgerhq/nanos-secure-sdk
- *
  */
 
 uint8_t

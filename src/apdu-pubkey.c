@@ -1,3 +1,8 @@
+/**
+ * apdu-pubkey.c - xpub, pubkey and address derivation for hns
+ * Copyright (c) 2018, Boyma Fahnbulleh (MIT License).
+ * https://github.com/boymanjor/ledger-app-hns
+ */
 #include <string.h>
 #include "apdu.h"
 #include "blake2b.h"
@@ -6,28 +11,49 @@
 #include "segwit-addr.h"
 #include "utils.h"
 
-// p1 constants
+/**
+ * These constants are used to inspect P1's least significant bit.
+ * This bit specifies whether on-device confirmation is required.
+ */
 #define DEFAULT 0x00 // xx0
 #define CONFIRM 0x01 // xx1
 
+/**
+ * These constants are used to inspect P1's 2nd & 3rd least significant bits.
+ * These bits specify the network to use for formatting info shown on-device.
+ */
 #define NETWORK_MASK 0x06 // 110
 #define MAINNET 0x00      // 00x
 #define TESTNET 0x02      // 01x
 #define REGTEST 0x04      // 10x
 #define SIMNET  0x06      // 11x
 
-// p2 constants
+/**
+ * These constants are used to inspect P2.
+ * P2 is used to indicated what information to derive.
+ */
 #define PUBKEY 0x00
 #define XPUB 0x01
 #define ADDR 0x02
 
+/**
+ * Network prefixes for base58 xpub encoding.
+ */
 #define XPUB_MAINNET 0x0488b21e
 #define XPUB_TESTNET 0x043587cf
 #define XPUB_REGTEST 0xeab4fa05
 #define XPUB_SIMNET 0x0420bd3a
 
-static ledger_ui_ctx_t *ctx = &g_ledger.ui;
-
+/**
+ * Encodes a pubkey hash in bech32 format.
+ *
+ * In:
+ * @param hrp is the human readable part of bech32 encoding.
+ * @param pubkey is the pubkey to encode.
+ *
+ * Out:
+ * @param addr is the encoded address.
+ */
 static inline void
 encode_addr(char *hrp, uint8_t *pubkey, char *addr) {
   uint8_t hash[20];
@@ -39,6 +65,18 @@ encode_addr(char *hrp, uint8_t *pubkey, char *addr) {
     THROW(HNS_CANNOT_ENCODE_ADDRESS);
 }
 
+/**
+ * Encodes an xpub in base58check format.
+ *
+ * In:
+ * @param xpub is the xpub to encode.
+ * @param network is 2 bit flag parsed from P1.
+ *
+ * Out:
+ * @param b58 is the encoded xpub string.
+ * @param b58_sz is the size of the encoded xpub string.
+ * @return a boolean indicating success or failure.
+ */
 static inline bool
 encode_xpub(
   ledger_ecdsa_xpub_t *xpub,
@@ -77,8 +115,8 @@ encode_xpub(
   write_u32(&buf, xpub->path[xpub->depth - 1], HNS_BE);
   write_bytes(&buf, xpub->code, sizeof(xpub->code));
   write_bytes(&buf, xpub->key, sizeof(xpub->key));
-  ledger_sha256(checksum, data, 78);
-  ledger_sha256(checksum, checksum, 32);
+  ledger_sha256(data, 78, checksum);
+  ledger_sha256(checksum, 32, checksum);
   write_bytes(&buf, checksum, 4);
 
   return b58enc(b58, b58_sz, data, sizeof(data));
@@ -93,12 +131,15 @@ hns_apdu_get_public_key(
   volatile uint8_t *out,
   volatile uint8_t *flags
 ) {
+  if (!ledger_unlocked())
+    THROW(HNS_SECURITY_CONDITION_NOT_SATISFIED);
+
   switch(p1) {
-    case DEFAULT:
-    case CONFIRM:
+    case DEFAULT | MAINNET:
     case DEFAULT | TESTNET:
     case DEFAULT | REGTEST:
     case DEFAULT | SIMNET:
+    case CONFIRM | MAINNET:
     case CONFIRM | TESTNET:
     case CONFIRM | REGTEST:
     case CONFIRM | SIMNET:
@@ -118,37 +159,24 @@ hns_apdu_get_public_key(
   }
 
   ledger_ecdsa_xpub_t xpub;
-  uint8_t unsafe_path = 0;
-  uint8_t long_path = 0;
+  uint8_t non_standard = 0;
+  uint8_t non_address = 0;
 
-  memset(ctx, 0, sizeof(ledger_ui_ctx_t));
+  ledger_apdu_cache_clear();
 
-  if (!ledger_unlocked())
-    THROW(HNS_SECURITY_CONDITION_NOT_SATISFIED);
-
-  if (!read_bip32_path(&buf, &len, &xpub.depth, xpub.path, &unsafe_path))
+  if (!read_bip44_path(&buf, &len, &xpub.depth, xpub.path, &non_standard))
     THROW(HNS_CANNOT_READ_BIP32_PATH);
 
-  if (xpub.depth > HNS_ADDR_DEPTH)
-    long_path = 1;
+  if (xpub.depth != HNS_BIP44_ADDR_DEPTH)
+    non_address = 1;
 
-  // TODO: throw better exceptions
-  if (p2 & ADDR) {
-    if (xpub.depth != HNS_ADDR_DEPTH)
-      THROW(HNS_INCORRECT_P2);
+  if ((p2 & ADDR) && (non_standard || non_address))
+    THROW(HNS_INCORRECT_ADDR_PATH);
 
-    if (unsafe_path)
-      THROW(HNS_INCORRECT_P2);
-
-    if (long_path)
-      THROW(HNS_INCORRECT_P2);
-  }
-
-  // Write pubkey to output buffer.
   ledger_ecdsa_derive_xpub(&xpub);
+
   len = write_bytes(&out, xpub.key, sizeof(xpub.key));
 
-  // Write xpub details to output buffer, or write 0x0000.
   if (p2 & XPUB) {
     len += write_varbytes(&out, xpub.code, sizeof(xpub.code));
     len += write_varbytes(&out, xpub.fp, sizeof(xpub.fp));
@@ -156,26 +184,25 @@ hns_apdu_get_public_key(
     len += write_u16(&out, 0, HNS_LE);
   }
 
-  // Write addr to output buffer, or write 0x00.
   char addr[75];
 
   if (p2 & ADDR) {
     char hrp[2];
 
     switch(xpub.path[1]) {
-      case HNS_MAINNET:
+      case HNS_BIP44_MAINNET:
         strcpy(hrp, "hs");
         break;
 
-      case HNS_TESTNET:
+      case HNS_BIP44_TESTNET:
         strcpy(hrp, "ts");
         break;
 
-      case HNS_REGTEST:
+      case HNS_BIP44_REGTEST:
         strcpy(hrp, "rs");
         break;
 
-      case HNS_SIMNET:
+      case HNS_BIP44_SIMNET:
         strcpy(hrp, "ss");
         break;
 
@@ -185,39 +212,42 @@ hns_apdu_get_public_key(
     }
 
     encode_addr(hrp, xpub.key, addr);
+
     len += write_varbytes(&out, addr, sizeof(addr));
   } else {
     len += write_u8(&out, 0);
   }
 
 #if defined(TARGET_NANOS)
-  if ((p1 & CONFIRM) || unsafe_path || long_path) {
+  if ((p1 & CONFIRM) || non_standard) {
+    ledger_ui_ctx_t *ui = &g_ledger.ui;
+    memset(ui, 0, sizeof(ledger_ui_ctx_t));
+
     char *header = NULL;
     char *message = NULL;
 
-    ledger_apdu_cache_write(len);
+    // TODO(boymanjor): better exception
+    if (!ledger_apdu_cache_write(NULL, len))
+      THROW(EXCEPTION);
 
-    if (unsafe_path) {
+    if (non_standard) {
       header = "WARNING";
-      message = "Unhardened derivation above BIP44 change level is unsafe.";
-    } else if(long_path) {
-      header = "WARNING";
-      message = "Derivation passes BIP44 address level.";
+      message = "Non-standard BIP44 derivation path.";
     } else if (p2 & ADDR) {
       header = "Address";
       message = addr;
     } else if (p2 & XPUB) {
-      uint8_t message_sz = sizeof(ctx->message);
+      uint8_t message_sz = sizeof(ui->message);
       header = "XPUB";
-      message = ctx->message;
+      message = ui->message;
 
       if (!encode_xpub(&xpub, p1 & NETWORK_MASK, message, &message_sz))
         THROW(HNS_CANNOT_ENCODE_XPUB);
 
     } else {
       header = "Public Key";
-      message = ctx->message;
-      bin2hex(message, xpub.key, sizeof(xpub.key));
+      message = ui->message;
+      bin_to_hex(message, xpub.key, sizeof(xpub.key));
     }
 
     if(!ledger_ui_update(header, message, flags))

@@ -1,3 +1,8 @@
+/**
+ * apdu-signature.c - transaction parsing & signing for hns
+ * Copyright (c) 2018, Boyma Fahnbulleh (MIT License).
+ * https://github.com/boymanjor/ledger-app-hns
+ */
 #include <stdbool.h>
 #include <string.h>
 #include "apdu.h"
@@ -5,25 +10,45 @@
 #include "ledger.h"
 #include "utils.h"
 
-#define P1_CONT 0x00
-#define P1_INIT 0x01
-#define P2_PARSE 0x00
-#define P2_SIGN 0x01
+/**
+ * These constants are used to determine if P1 indicates
+ * the current APDU message is the initial message or
+ * a following message.
+ */
+#define NO 0x00
+#define YES 0x01
 
+/**
+ * These constants are used to determine which operation
+ * mode is indicated by P2.
+ */
+#define PARSE 0x00
+#define SIGN 0x01
+
+/**
+ * These constants are used to determine which transaction
+ * detail is currently being parsed.
+ */
 #define PREVOUT 0x00
 #define VALUE 0x01
 #define SEQUENCE 0x02
 #define OUTPUTS 0x03
 
+/**
+ * HNS transaction input representation.
+ */
 typedef struct hns_input_s {
   uint8_t prev[36];
   uint8_t val[8];
   uint8_t seq[4];
 } hns_input_t;
 
+/**
+ * Global context used to handle parsing and signing state.
+ */
 typedef struct hns_apdu_signature_ctx_t {
-  bool sign_ready;
-  bool skip_input;
+  bool tx_parsed;
+  bool ready_to_parse_input_script;
   hns_input_t ins[HNS_MAX_INPUTS];
   uint8_t ins_len;
   uint8_t outs_len;
@@ -35,25 +60,41 @@ typedef struct hns_apdu_signature_ctx_t {
   uint8_t locktime[4];
 } hns_apdu_signature_ctx_t;
 
+/**
+ * Context used to handle parsing and signing state.
+ */
 static hns_apdu_signature_ctx_t ctx;
+
+/**
+ * Hashing context for signature hash.
+ */
 static blake2b_ctx hash;
+
+/**
+ * Hashing context for txid.
+ */
 static blake2b_ctx txid;
 
+/**
+ * Parses transactions details, generates txid & begins sighash.
+ *
+ * In:
+ * @param buf is the input buffer.
+ * @param len is length of input buffer.
+ * @param reset indicates if parser state should be reset.
+ * @return the length of the APDU response (always 0).
+ */
 static inline uint16_t
-parse(uint16_t *len, volatile uint8_t *buf, bool init) {
+parse(uint16_t *len, volatile uint8_t *buf, bool reset) {
   static uint8_t i;
   static uint8_t next_item;
   static uint8_t outs_size;
-  static uint8_t store_len;
-  static uint8_t store[35];
 
-  if (init) {
+  if (reset) {
     i = 0;
     next_item = 0;
     outs_size = 0;
-    store_len = 0;
 
-    memset(store, 0, sizeof(store));
     memset(&ctx, 0, sizeof(hns_apdu_signature_ctx_t));
 
     ledger_apdu_cache_clear();
@@ -90,11 +131,11 @@ parse(uint16_t *len, volatile uint8_t *buf, bool init) {
     if (next_item != OUTPUTS)
       THROW(HNS_INCORRECT_PARSER_STATE);
 
-  if (store_len > 0) {
-    memmove(buf + store_len, buf, *len);
-    memmove(buf, store, store_len);
-    *len += store_len;
-  }
+  // If cache is full, flush to apdu buffer.
+  uint8_t cache_len = ledger_apdu_cache_check();
+
+  if (cache_len)
+    *len += ledger_apdu_cache_flush(*len);
 
   for (;;) {
     bool should_continue = false;
@@ -147,6 +188,8 @@ parse(uint16_t *len, volatile uint8_t *buf, bool init) {
 
       case OUTPUTS: {
         if (*len > 0) {
+          // Due to sizes reaching up to +500 bytes,
+          // the outputs are hashed immediately to save RAM.
           blake2b_update(&txid, buf, *len);
           blake2b_update(&hash, buf, *len);
           outs_size -= *len;
@@ -163,7 +206,7 @@ parse(uint16_t *len, volatile uint8_t *buf, bool init) {
         blake2b_update(&txid, ctx.locktime, sizeof(ctx.locktime));
         blake2b_final(&txid, ctx.txid);
         blake2b_final(&hash, ctx.outs);
-        ctx.sign_ready = true;
+        ctx.tx_parsed = true;
         next_item++;
         break;
       }
@@ -180,18 +223,27 @@ parse(uint16_t *len, volatile uint8_t *buf, bool init) {
       THROW(HNS_INCORRECT_PARSER_STATE);
 
     if (*len > 0)
-      memmove(store, buf, *len);
-
-    store_len = *len;
+      if(!ledger_apdu_cache_write(buf, *len))
+        THROW(HNS_INCORRECT_PARSER_STATE);
 
     break;
   }
 
-  return *len;
+  return 0;
 };
 
-static const uint8_t SIGHASH_ALL[4] = {0x01, 0x00, 0x00, 0x00};
 
+/**
+ * Parses sighash, path, and input details, then returns a signature
+ * for the specified input.
+ *
+ * In:
+ * @param len is length of input buffer.
+ * @param buf is the input buffer.
+ * @param sig is the output buffer.
+ * @param confirm indicates if on-device confirmation is required.
+ * @return the length of the APDU response.
+ */
 static inline uint8_t
 sign(
   uint16_t *len,
@@ -206,16 +258,24 @@ sign(
   static uint32_t path[HNS_MAX_DEPTH];
   static hns_varint_t script_ctr;
 
-  if (!ctx.skip_input) {
-    if (!ctx.sign_ready)
+  // Currently, only sighash all is supported.
+  const uint32_t sighash_all = 1;
+
+  // To save on RAM the tx inputs are hashed immediately,
+  // instead of being represented in memory. This may result
+  // in multiple messages being sent before a signature is
+  // returned. We should only parse the sighash type, and path
+  // details once. They are not sent in subsequent messages.
+  if (!ctx.ready_to_parse_input_script) {
+    if (!ctx.tx_parsed)
       THROW(HNS_INCORRECT_PARSER_STATE);
 
-    uint8_t unsafe = 0;
+    uint8_t non_standard = 0;
 
-    if (!read_bip32_path(&buf, len, &depth, path, &unsafe))
+    if (!read_bip44_path(&buf, len, &depth, path, &non_standard))
       THROW(HNS_CANNOT_READ_BIP32_PATH);
 
-    if (unsafe)
+    if (non_standard)
       THROW(HNS_INCORRECT_SIGNATURE_PATH);
 
     if (!read_u8(&buf, len, &i))
@@ -227,7 +287,7 @@ sign(
     if (!read_bytes(&buf, len, type, sizeof(type)))
       THROW(HNS_CANNOT_READ_SIGHASH_TYPE);
 
-    if (memcmp(type, SIGHASH_ALL, sizeof(type)))
+    if (memcmp(type, &sighash_all, sizeof(type)))
       THROW(HNS_INCORRECT_SIGHASH_TYPE);
 
     if (!peek_varint(&buf, len, &script_ctr))
@@ -246,7 +306,7 @@ sign(
     blake2b_update(&hash, ctx.ins[i].prev, sizeof(ctx.ins[i].prev));
     blake2b_update(&hash, script_len, sz);
 
-    ctx.skip_input = true;
+    ctx.ready_to_parse_input_script = true;
   }
 
   script_ctr -= *len;
@@ -259,7 +319,7 @@ sign(
   if (script_ctr > 0)
     return 0;
 
-  ctx.skip_input = false;
+  ctx.ready_to_parse_input_script = false;
 
   uint8_t digest[32];
 
@@ -275,14 +335,21 @@ sign(
   *len = sig[1] + 2;
 
 #if defined(TARGET_NANOS)
+  // TODO(boymanjor): force confirmation without user controlled param.
   if (confirm) {
+    ledger_ui_ctx_t *ui = &g_ledger.ui;
+    memset(ui, 0, sizeof(ledger_ui_ctx_t));
+
     char *header = "TXID";
-    char *message = g_ledger.ui.message;
+    char *message = ui->message;
 
-    ledger_apdu_cache_write(*len);
+    // TODO(boymanjor): better exception
+    if(!ledger_apdu_cache_write(NULL, *len))
+      THROW(EXCEPTION);
 
-    bin2hex(message, ctx.txid, sizeof(ctx.txid));
+    bin_to_hex(message, ctx.txid, sizeof(ctx.txid));
 
+    // TODO(boymanjor): better exception
     if (!ledger_ui_update(header, message, flags))
       THROW(EXCEPTION);
 
@@ -295,19 +362,20 @@ sign(
 
 volatile uint16_t
 hns_apdu_get_input_signature(
-  uint8_t init,
-  uint8_t func,
+  uint8_t initial_msg,
+  uint8_t mode,
   uint16_t len,
   volatile uint8_t *in,
   volatile uint8_t *out,
   volatile uint8_t *flags
 ) {
-  switch(init) {
-    case P1_INIT:
+  switch(initial_msg) {
+    case YES:
       if (!ledger_unlocked())
         THROW(HNS_SECURITY_CONDITION_NOT_SATISFIED);
+      break;
 
-    case P1_CONT:
+    case NO:
       break;
 
     default:
@@ -315,13 +383,13 @@ hns_apdu_get_input_signature(
       break;
   };
 
-  switch(func) {
-    case P2_PARSE:
-      len = parse(&len, in, init);
+  switch(mode) {
+    case PARSE:
+      len = parse(&len, in, initial_msg);
       break;
 
-    case P2_SIGN:
-      len = sign(&len, in, out, flags, init);
+    case SIGN:
+      len = sign(&len, in, out, flags, initial_msg);
       break;
 
     default:
