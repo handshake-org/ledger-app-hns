@@ -37,6 +37,7 @@ typedef struct ledger_ecdsa_xpub_s {
  * UI context used to manage on-screen text.
  */
 typedef struct ledger_ui_ctx_s {
+  bool must_confirm;
   uint8_t header[11];
   uint8_t viewport[13];
   uint8_t message[113];
@@ -206,10 +207,19 @@ void
 ledger_ui_idle(void);
 
 /**
- * Initializes the device ui.
+ * Initializes the device UI.
  */
 void
 ledger_ui_init(void);
+
+/**
+ * Initialize UI session for handling apdu commmand.
+ *
+ * Out:
+ * @return the global UI context.
+ */
+ledger_ui_ctx_t *
+ledger_ui_init_session(void);
 
 /**
  * Updates the device's on-screen text.

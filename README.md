@@ -165,9 +165,10 @@ requests for each input.
 Both modes may require multiple message exchanges between the
 client and the device. The first instruction param (P1) indicates
 if a message is the initial one. An initial parse message clears
-any cached transaction details from memory. An initial signature
+any cached transaction details from memory. The initial signature
 request for a particular tx requires on-device confirmation of
-the calculated txid.
+the txid. In sign mode, P1 is ignored and the initial message is
+determined internally.
 
 The second instruction param (P2) indicates the operation mode.
 

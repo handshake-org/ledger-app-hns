@@ -104,6 +104,7 @@ ledger_ui_approve_button(uint32_t mask, uint32_t ctr) {
     case BUTTON_EVT_RELEASED | BUTTON_RIGHT: {
       uint8_t len = ledger_apdu_cache_flush(0);
       ledger_apdu_exchange(IO_RETURN_AFTER_TX, len, HNS_OK);
+      g_ledger.ui.must_confirm = false;
       ledger_ui_idle();
       break;
     }
@@ -187,6 +188,13 @@ void
 ledger_ui_init(void) {
   UX_INIT();
   ledger_ui_idle();
+}
+
+ledger_ui_ctx_t *
+ledger_ui_init_session(void) {
+  ledger_ui_ctx_t *ui = &g_ledger.ui;
+  memset(ui, 0, sizeof(ledger_ui_ctx_t));
+  return ui;
 }
 
 bool

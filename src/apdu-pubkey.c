@@ -134,18 +134,25 @@ hns_apdu_get_public_key(
   if (!ledger_unlocked())
     THROW(HNS_SECURITY_CONDITION_NOT_SATISFIED);
 
+  ledger_ui_ctx_t *ui = ledger_ui_init_session();
+
   switch(p1) {
     case DEFAULT | MAINNET:
     case DEFAULT | TESTNET:
     case DEFAULT | REGTEST:
     case DEFAULT | SIMNET:
+      break;
+
     case CONFIRM | MAINNET:
     case CONFIRM | TESTNET:
     case CONFIRM | REGTEST:
     case CONFIRM | SIMNET:
+      ui->must_confirm = true;
       break;
+
     default:
       THROW(HNS_INCORRECT_P1);
+      break;
   }
 
   switch(p2) {
@@ -219,10 +226,7 @@ hns_apdu_get_public_key(
   }
 
 #if defined(TARGET_NANOS)
-  if ((p1 & CONFIRM) || non_standard) {
-    ledger_ui_ctx_t *ui = &g_ledger.ui;
-    memset(ui, 0, sizeof(ledger_ui_ctx_t));
-
+  if (ui->must_confirm || non_standard) {
     char *header = NULL;
     char *message = NULL;
 

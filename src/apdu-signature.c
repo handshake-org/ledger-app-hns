@@ -61,6 +61,11 @@ typedef struct hns_apdu_signature_ctx_t {
 } hns_apdu_signature_ctx_t;
 
 /**
+ * Context used to handle the device's UI.
+ */
+static ledger_ui_ctx_t *ui = NULL;
+
+/**
  * Context used to handle parsing and signing state.
  */
 static hns_apdu_signature_ctx_t ctx;
@@ -247,7 +252,6 @@ parse(uint16_t *len, volatile uint8_t *buf, bool reset) {
  * @param len is length of input buffer.
  * @param buf is the input buffer.
  * @param sig is the output buffer.
- * @param confirm indicates if on-device confirmation is required.
  * @return the length of the APDU response.
  */
 static inline uint8_t
@@ -255,8 +259,7 @@ sign(
   uint16_t *len,
   volatile uint8_t *buf,
   volatile uint8_t *sig,
-  volatile uint8_t *flags,
-  bool confirm
+  volatile uint8_t *flags
 ) {
   static uint8_t i;
   static uint8_t type[4];
@@ -279,7 +282,7 @@ sign(
     uint8_t non_standard = 0;
 
     if (!read_bip44_path(&buf, len, &depth, path, &non_standard))
-      THROW(HNS_CANNOT_READ_BIP32_PATH);
+      THROW(HNS_CANNOT_READ_BIP44_PATH);
 
     if (non_standard)
       THROW(HNS_INCORRECT_SIGNATURE_PATH);
@@ -341,11 +344,7 @@ sign(
   *len = sig[1] + 2;
 
 #if defined(TARGET_NANOS)
-  // TODO(boymanjor): force confirmation without user controlled param.
-  if (confirm) {
-    ledger_ui_ctx_t *ui = &g_ledger.ui;
-    memset(ui, 0, sizeof(ledger_ui_ctx_t));
-
+  if (ui->must_confirm) {
     char *header = "TXID";
     char *message = ui->message;
 
@@ -377,6 +376,10 @@ hns_apdu_get_input_signature(
     case YES:
       if (!ledger_unlocked())
         THROW(HNS_SECURITY_CONDITION_NOT_SATISFIED);
+
+      if (mode == PARSE)
+        ui = ledger_ui_init_session();
+        ui->must_confirm = true;
       break;
 
     case NO:
@@ -393,7 +396,7 @@ hns_apdu_get_input_signature(
       break;
 
     case SIGN:
-      len = sign(&len, in, out, flags, initial_msg);
+      len = sign(&len, in, out, flags);
       break;
 
     default:
