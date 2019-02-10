@@ -134,8 +134,14 @@ parse(uint16_t *len, volatile uint8_t *buf, bool reset) {
   // If cache is full, flush to apdu buffer.
   uint8_t cache_len = ledger_apdu_cache_check();
 
-  if (cache_len)
-    *len += ledger_apdu_cache_flush(*len);
+  if (cache_len) {
+    uint16_t offset = *len;
+
+    *len += ledger_apdu_cache_flush(offset);
+
+    if (cache_len + offset != *len)
+      THROW(HNS_CACHE_FLUSH_ERROR);
+  }
 
   for (;;) {
     bool should_continue = false;
@@ -343,15 +349,13 @@ sign(
     char *header = "TXID";
     char *message = ui->message;
 
-    // TODO(boymanjor): better exception
     if(!ledger_apdu_cache_write(NULL, *len))
-      THROW(EXCEPTION);
+      THROW(HNS_CACHE_WRITE_ERROR);
 
     bin_to_hex(message, ctx.txid, sizeof(ctx.txid));
 
-    // TODO(boymanjor): better exception
     if (!ledger_ui_update(header, message, flags))
-      THROW(EXCEPTION);
+      THROW(HNS_CANNOT_UPDATE_UI);
 
     return 0;
   }

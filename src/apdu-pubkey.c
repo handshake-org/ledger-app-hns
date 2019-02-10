@@ -165,7 +165,7 @@ hns_apdu_get_public_key(
   ledger_apdu_cache_clear();
 
   if (!read_bip44_path(&buf, &len, &xpub.depth, xpub.path, &non_standard))
-    THROW(HNS_CANNOT_READ_BIP32_PATH);
+    THROW(HNS_CANNOT_READ_BIP44_PATH);
 
   if (xpub.depth != HNS_BIP44_ADDR_DEPTH)
     non_address = 1;
@@ -226,9 +226,8 @@ hns_apdu_get_public_key(
     char *header = NULL;
     char *message = NULL;
 
-    // TODO(boymanjor): better exception
     if (!ledger_apdu_cache_write(NULL, len))
-      THROW(EXCEPTION);
+      THROW(HNS_CACHE_WRITE_ERROR);
 
     if (non_standard) {
       header = "WARNING";
@@ -251,7 +250,7 @@ hns_apdu_get_public_key(
     }
 
     if(!ledger_ui_update(header, message, flags))
-      THROW(EXCEPTION);
+      THROW(HNS_CANNOT_UPDATE_UI);
 
     return 0;
   }
