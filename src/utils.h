@@ -21,14 +21,14 @@
 /**
  * Constants for parsing BIP44 paths.
  */
-#define HNS_HARDENED 0x80000000
+#define HNS_HARDENED 0x80000000u
 #define HNS_BIP44_ACCT_DEPTH 3
 #define HNS_BIP44_ADDR_DEPTH 5
-#define HNS_BIP44_PURPOSE HNS_HARDENED | 44
-#define HNS_BIP44_MAINNET HNS_HARDENED | 5353
-#define HNS_BIP44_TESTNET HNS_HARDENED | 5354
-#define HNS_BIP44_REGTEST HNS_HARDENED | 5355
-#define HNS_BIP44_SIMNET  HNS_HARDENED | 5356
+#define HNS_BIP44_PURPOSE (HNS_HARDENED | 0x2cu)   // 44
+#define HNS_BIP44_MAINNET (HNS_HARDENED | 0x14e9u) // 5353
+#define HNS_BIP44_TESTNET (HNS_HARDENED | 0x14eau) // 5354
+#define HNS_BIP44_REGTEST (HNS_HARDENED | 0x14ebu) // 5355
+#define HNS_BIP44_SIMNET  (HNS_HARDENED | 0x14ecu) // 5356
 #define HNS_MAX_DEPTH LEDGER_MAX_DEPTH
 
 /**
@@ -306,12 +306,12 @@ read_bip44_path(
 
     switch(level) {
       case 0:
-        if (index != (HNS_BIP44_PURPOSE))
+        if (index != HNS_BIP44_PURPOSE)
           *non_standard = 1;
         break;
 
       case 1:
-        if (index < (HNS_BIP44_MAINNET) || index > (HNS_BIP44_SIMNET))
+        if (index < HNS_BIP44_MAINNET || index > HNS_BIP44_SIMNET)
           *non_standard = 1;
         break;
 
