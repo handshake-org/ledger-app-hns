@@ -331,6 +331,7 @@ sign(
   ctx.ready_to_parse_input_script = false;
 
   uint8_t digest[32];
+  uint8_t sig_len = 64;
 
   blake2b_update(&hash, ctx.ins[i].val, sizeof(ctx.ins[i].val));
   blake2b_update(&hash, ctx.ins[i].seq, sizeof(ctx.ins[i].seq));
@@ -339,16 +340,15 @@ sign(
   blake2b_update(&hash, type, sizeof(type));
   blake2b_final(&hash, digest);
 
-  ledger_ecdsa_sign(path, depth, digest, sizeof(digest), sig);
-
-  *len = sig[1] + 2;
+  if(!ledger_ecdsa_sign(path, depth, digest, sizeof(digest), sig, sig_len))
+    THROW(HNS_FAILED_TO_SIGN_INPUT);
 
 #if defined(TARGET_NANOS)
   if (ui->must_confirm) {
     char *header = "TXID";
     char *message = ui->message;
 
-    if(!ledger_apdu_cache_write(NULL, *len))
+    if(!ledger_apdu_cache_write(NULL, sig_len))
       THROW(HNS_CACHE_WRITE_ERROR);
 
     bin_to_hex(message, ctx.txid, sizeof(ctx.txid));
@@ -360,7 +360,7 @@ sign(
   }
 #endif
 
-  return *len;
+  return sig_len;
 }
 
 volatile uint16_t

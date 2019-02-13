@@ -177,13 +177,14 @@ ledger_ecdsa_derive_xpub(ledger_ecdsa_xpub_t *xpub);
  * Out:
  * @param sig is the resultant signature.
  */
-void
+bool
 ledger_ecdsa_sign(
   uint32_t *path,
   uint8_t depth,
   uint8_t *hash,
   size_t hash_len,
-  uint8_t *sig
+  uint8_t *sig,
+  uint8_t sig_len
 );
 
 /**

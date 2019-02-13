@@ -199,18 +199,170 @@ ledger_ecdsa_derive_xpub(ledger_ecdsa_xpub_t *xpub) {
   }
 }
 
-void
+/**
+ * Parses a DER encoded signature and returns a 64 byte buffer of R & S.
+ *
+ * Based on:
+ * https://github.com/bitcoin-core/secp256k1/blob/abe2d3e/src/ecdsa_impl.h#L145
+ *
+ * In:
+ * @param der is the DER encoded signature.
+ * @param der_len is the length of the DER encoded signature.
+ * @param sig_sz is the size of the signature buffer.
+ *
+ * Out:
+ * @param sig is the decoded signature.
+ * @return a boolean indicating success or failure.
+ */
+static inline bool
+parse_der(uint8_t *der, uint8_t der_len, uint8_t *sig, uint8_t sig_sz) {
+  if (der == NULL || der_len < 70 || der_len > 72)
+    return false;
+
+  if (sig == NULL || sig_sz < 64)
+    return false;
+
+  uint8_t const *der_end = der + der_len;
+  int overflow = 0;
+  int len = 0;
+
+  // Prepare signature for padding.
+  memset(sig, 0, sig_sz);
+
+  // Check initial byte for correct format.
+  if (der == der_end || *(der++) != 0x30)
+    return false;
+
+  // Check length of remaining data.
+  len = *(der++);
+
+  if ((len & 0x80) != 0x00)
+    return false;
+
+  if (len <= 0 || der + len > der_end)
+    return false;
+
+  if (der + len != der_end)
+    return false;
+
+  // Check tag byte for R.
+  if (der == der_end || *(der++) != 0x02)
+    return false;
+
+  // Check length of R.
+  len = *(der++);
+
+  if ((len & 0x80) != 0)
+    return false;
+
+  if (len <= 0 || der + len > der_end)
+    return false;
+
+  // Check padding of R.
+
+  // Excessive 0x00 padding.
+  if (der[0] == 0x00 && len > 1 && (der[1] & 0x80) == 0x00)
+    THROW(0x51);
+    /* return false; */
+
+  // Excessive 0xff padding.
+  if (der[0] == 0xff && len > 1 && (der[1] & 0x80) == 0x80)
+    return false;
+
+  // Check sign of the length.
+  if ((der[0] & 0x80) == 0x80)
+    overflow = 1;
+
+  // Skip leading zero bytes.
+  while (len > 0 && der[0] == 0) {
+    len--;
+    der++;
+  }
+
+  if (len > 32)
+    overflow = 1;
+
+  if (!overflow) {
+    memmove(sig + 32 - len, der, len);
+  }
+
+  if (overflow) {
+    memmove(sig, 0, 32);
+  }
+
+  der += len;
+  sig += 32;
+  overflow = 0;
+
+  // Check tag byte for S.
+  if (der == der_end || *(der++) != 0x02)
+    return false;
+
+  // Check length of S.
+  len = *(der++);
+
+  if ((len & 0x80) != 0)
+    return false;
+
+  if (len <= 0 || der + len > der_end)
+    return false;
+
+  // Check padding of S.
+
+  // Excessive 0x00 padding.
+  if (der[0] == 0x00 && len > 1 && (der[1] & 0x80) == 0x00)
+    return false;
+
+  // Excessive 0xff padding.
+  if (der[0] == 0xff && len > 1 && (der[1] & 0x80) == 0x80)
+    return false;
+
+  // Check sign of the length.
+  if ((der[0] & 0x80) == 0x80)
+    overflow = 1;
+
+  // Skip leading zero bytes.
+  while (len > 0 && der[0] == 0) {
+    len--;
+    der++;
+  }
+
+  if (len > 32)
+    overflow = 1;
+
+  if (!overflow) {
+    memmove(sig + 32 - len, der, len);
+  }
+
+  if (overflow) {
+    memmove(sig, 0, 32);
+  }
+
+  der += len;
+  sig += 32;
+
+  if (der != der_end)
+    return false;
+
+  return true;
+}
+
+bool
 ledger_ecdsa_sign(
   uint32_t *path,
   uint8_t depth,
   uint8_t *hash,
   size_t hash_len,
-  uint8_t *sig
+  uint8_t *sig,
+  uint8_t sig_sz
 ) {
+  uint8_t der_sig[72];
   ledger_ecdsa_bip32_node_t n;
   ledger_ecdsa_derive_node(path, depth, &n);
   cx_ecdsa_sign(&n.prv, CX_RND_RFC6979 | CX_LAST, CX_SHA256,
-    hash, hash_len, sig, NULL);
+    hash, hash_len, der_sig, NULL);
+
+  return parse_der(der_sig, der_sig[1] + 2, sig, sig_sz);
 }
 
 bool
