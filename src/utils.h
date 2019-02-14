@@ -32,6 +32,12 @@
 #define HNS_MAX_DEPTH LEDGER_MAX_DEPTH
 
 /**
+ * Bitflags for BIP44 path info.
+ */
+#define HNS_BIP44_NON_ADDR 0x01 // 01
+#define HNS_BIP44_NON_STD 0x02  // 10
+
+/**
  * Used in buffer io functions to specify big-endianness.
  */
 #define HNS_BE true
@@ -276,7 +282,7 @@ read_bip44_path(
   uint8_t * len,
   uint8_t * depth,
   uint32_t * path,
-  uint8_t * non_standard
+  uint8_t * info
 ) {
   if (*len < 1)
     return false;
@@ -290,8 +296,19 @@ read_bip44_path(
     return false;
   }
 
-  if (*depth > HNS_BIP44_ADDR_DEPTH)
-    *non_standard = 1;
+  /**
+   * Returns info regarding whether the parsed path
+   * leads to a standard BIP44 address or account.
+   * - Setting the lsb indicates the path is not an address.
+   * - Setting the second lsb indicates the path is non standard.
+   */
+  *info = 0;
+
+  if (*depth != HNS_BIP44_ADDR_DEPTH)
+    *info = HNS_BIP44_NON_ADDR;
+
+  if (*info && *depth != HNS_BIP44_ACCT_DEPTH)
+    *info |= HNS_BIP44_NON_STD;
 
   uint8_t level;
 
@@ -307,17 +324,17 @@ read_bip44_path(
     switch(level) {
       case 0:
         if (index != HNS_BIP44_PURPOSE)
-          *non_standard = 1;
+          *info = HNS_BIP44_NON_ADDR | HNS_BIP44_NON_STD;
         break;
 
       case 1:
         if (index < HNS_BIP44_MAINNET || index > HNS_BIP44_SIMNET)
-          *non_standard = 1;
+          *info = HNS_BIP44_NON_ADDR | HNS_BIP44_NON_STD;
         break;
 
       case 2:
         if (!(index & HNS_HARDENED))
-          *non_standard = 1;
+          *info = HNS_BIP44_NON_ADDR | HNS_BIP44_NON_STD;
         break;
 
       default:

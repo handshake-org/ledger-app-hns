@@ -166,18 +166,19 @@ hns_apdu_get_public_key(
   }
 
   ledger_ecdsa_xpub_t xpub;
-  uint8_t non_standard = 0;
+  uint8_t path_info = 0;
   uint8_t non_address = 0;
+  uint8_t non_standard = 0;
 
   ledger_apdu_cache_clear();
 
-  if (!read_bip44_path(&buf, &len, &xpub.depth, xpub.path, &non_standard))
+  if (!read_bip44_path(&buf, &len, &xpub.depth, xpub.path, &path_info))
     THROW(HNS_CANNOT_READ_BIP44_PATH);
 
-  if (xpub.depth != HNS_BIP44_ADDR_DEPTH)
-    non_address = 1;
+  non_address = path_info & HNS_BIP44_NON_ADDR;
+  non_standard = path_info & HNS_BIP44_NON_STD;
 
-  if ((p2 & ADDR) && (non_standard || non_address))
+  if ((p2 & ADDR) && non_address)
     THROW(HNS_INCORRECT_ADDR_PATH);
 
   ledger_ecdsa_derive_xpub(&xpub);

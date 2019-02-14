@@ -279,12 +279,15 @@ sign(
     if (!ctx.tx_parsed)
       THROW(HNS_INCORRECT_PARSER_STATE);
 
-    uint8_t non_standard = 0;
+    uint8_t path_info = 0;
+    uint8_t non_address = 0;
 
-    if (!read_bip44_path(&buf, len, &depth, path, &non_standard))
+    if (!read_bip44_path(&buf, len, &depth, path, &path_info))
       THROW(HNS_CANNOT_READ_BIP44_PATH);
 
-    if (non_standard)
+    non_address = path_info & HNS_BIP44_NON_ADDR;
+
+    if (non_address)
       THROW(HNS_INCORRECT_SIGNATURE_PATH);
 
     if (!read_u8(&buf, len, &i))

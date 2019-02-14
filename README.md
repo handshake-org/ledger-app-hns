@@ -172,6 +172,9 @@ determined internally.
 
 The second instruction param (P2) indicates the operation mode.
 
+>NOTE: Signature requests for non-standard BIP44 address paths
+will be rejected.
+
 #### Structure - Parse Mode <a href="#parse"></a>
 ##### Header
 
@@ -256,7 +259,8 @@ None
 | input index         | 1   |
 | sighash type        | 4   |
 
-\* See serialization format [above](#encoded-path)
+\* See serialization format [above](#encoded-path). Non-standard BIP44 address
+paths will be rejected.
 
 ##### Output data
 
