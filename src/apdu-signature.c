@@ -267,7 +267,7 @@ sign(
   static uint32_t path[HNS_MAX_DEPTH];
   static hns_varint_t script_ctr;
 
-  // Currently, only sighash all is supported.
+  // Currently, only SIGHASH_ALL is supported.
   const uint32_t sighash_all = 1;
 
   // To save on RAM the tx inputs are hashed immediately,
@@ -345,6 +345,9 @@ sign(
 
   if(!ledger_ecdsa_sign(path, depth, digest, sizeof(digest), sig, sig_len))
     THROW(HNS_FAILED_TO_SIGN_INPUT);
+
+  // Add sighash type to the end of the signature (always SIGHASH_ALL for now).
+  sig[sig_len++] = sighash_all;
 
 #if defined(TARGET_NANOS)
   if (ui->must_confirm) {
