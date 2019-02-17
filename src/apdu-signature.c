@@ -48,7 +48,6 @@ typedef struct hns_input_s {
  */
 typedef struct hns_apdu_signature_ctx_t {
   bool tx_parsed;
-  bool ready_to_parse_input_script;
   hns_input_t ins[HNS_MAX_INPUTS];
   uint8_t ins_len;
   uint8_t outs_len;
@@ -90,12 +89,14 @@ static blake2b_ctx txid;
  * @return the length of the APDU response (always 0).
  */
 static inline uint16_t
-parse(uint16_t *len, volatile uint8_t *buf, bool reset) {
+parse(bool initial_msg, uint16_t *len, volatile uint8_t *buf) {
   static uint8_t i;
   static uint8_t next_item;
   static uint8_t outs_size;
 
-  if (reset) {
+  // If this is the initial message for a new transaction,
+  // clear all previous transaction details and parser state.
+  if (initial_msg) {
     i = 0;
     next_item = 0;
     outs_size = 0;
@@ -256,6 +257,7 @@ parse(uint16_t *len, volatile uint8_t *buf, bool reset) {
  */
 static inline uint8_t
 sign(
+  bool initial_msg,
   uint16_t *len,
   volatile uint8_t *buf,
   volatile uint8_t *sig,
@@ -273,9 +275,9 @@ sign(
   // To save on RAM the tx inputs are hashed immediately,
   // instead of being represented in memory. This may result
   // in multiple messages being sent before a signature is
-  // returned. We should only parse the sighash type, and path
-  // details once. They are not sent in subsequent messages.
-  if (!ctx.ready_to_parse_input_script) {
+  // returned. The path, index, sighash type, and script len
+  // are only sent with the first message.
+  if (initial_msg) {
     if (!ctx.tx_parsed)
       THROW(HNS_INCORRECT_PARSER_STATE);
 
@@ -317,8 +319,6 @@ sign(
     blake2b_update(&hash, ctx.seqs, sizeof(ctx.seqs));
     blake2b_update(&hash, ctx.ins[i].prev, sizeof(ctx.ins[i].prev));
     blake2b_update(&hash, script_len, sz);
-
-    ctx.ready_to_parse_input_script = true;
   }
 
   script_ctr -= *len;
@@ -330,8 +330,6 @@ sign(
 
   if (script_ctr > 0)
     return 0;
-
-  ctx.ready_to_parse_input_script = false;
 
   uint8_t digest[32];
   uint8_t sig_len = 64;
@@ -398,11 +396,11 @@ hns_apdu_get_input_signature(
 
   switch(mode) {
     case PARSE:
-      len = parse(&len, in, initial_msg);
+      len = parse(initial_msg, &len, in);
       break;
 
     case SIGN:
-      len = sign(&len, in, out, flags);
+      len = sign(initial_msg, &len, in, out, flags);
       break;
 
     default:

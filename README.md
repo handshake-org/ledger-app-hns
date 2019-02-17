@@ -158,17 +158,21 @@ displayed for derivations past the address index level.
 This command handles the entire input signature creation process.
 It operates in two modes: [parse](#parse) and [sign](#sign). When
 engaged in parse mode, transaction details are sent to the device
-where they are parsed, cached, and prepared for signing. Once
-all tx details have been parsed, the user can send signature
-requests for each input.
+where they are parsed, cached, and prepared for signing. Once all
+tx details have been parsed, the user can send signature requests
+for each input. The first signature request for a particular tx
+requires on-device confirmation of the txid.
 
 Both modes may require multiple message exchanges between the
 client and the device. The first instruction param (P1) indicates
 if a message is the initial one. An initial parse message clears
-any cached transaction details from memory. The initial signature
-request for a particular tx requires on-device confirmation of
-the txid. In sign mode, P1 is ignored and the initial message is
-determined internally.
+any cached transaction details from memory and restarts the signing
+process. The initial message in a signature request should pass the
+path of the signing key, the input's index, the sighash type, and the
+first X bytes of the input script which exhaust the apdu buffer size
+(336 bytes). If the entire script does not fit into the first message,
+addtional messages will be necessary to send the rest of the script.
+These additional messages should only include the remaining script bytes.
 
 The second instruction param (P2) indicates the operation mode.
 
