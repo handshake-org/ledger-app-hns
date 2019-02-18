@@ -34,6 +34,9 @@
 #define SEQUENCE 0x02
 #define OUTPUTS 0x03
 
+/* Inputs are limited due to RAM limitations. */
+#define MAX_INPUTS 10
+
 /**
  * HNS transaction input representation.
  */
@@ -48,7 +51,7 @@ typedef struct hns_input_s {
  */
 typedef struct hns_apdu_signature_ctx_t {
   bool tx_parsed;
-  hns_input_t ins[HNS_MAX_INPUTS];
+  hns_input_t ins[MAX_INPUTS];
   uint8_t ins_len;
   uint8_t outs_len;
   uint8_t ver[4];
@@ -114,7 +117,7 @@ parse(bool initial_msg, uint16_t *len, volatile uint8_t *buf) {
     if (!read_u8(&buf, len, &ctx.ins_len))
       THROW(HNS_CANNOT_READ_INPUTS_LEN);
 
-    if (ctx.ins_len > HNS_MAX_INPUTS)
+    if (ctx.ins_len > MAX_INPUTS)
       THROW(HNS_INCORRECT_INPUTS_LEN);
 
     if (!read_u8(&buf, len, &ctx.outs_len))

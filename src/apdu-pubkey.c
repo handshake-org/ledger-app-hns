@@ -221,7 +221,7 @@ hns_apdu_get_public_key(
 
     encode_addr(hrp, xpub.key, addr);
 
-    len += write_varbytes(&out, addr, sizeof(addr));
+    len += write_varbytes(&out, addr, 42);
   } else {
     len += write_u8(&out, 0);
   }

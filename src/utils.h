@@ -16,7 +16,6 @@
  * General constants.
  */
 #define HNS_APP_NAME "HANDSHAKE"
-#define HNS_MAX_INPUTS 15
 
 /**
  * Constants for parsing BIP44 paths.
