@@ -61,6 +61,9 @@
 #define HNS_CACHE_FLUSH_ERROR 0x27
 #define HNS_CANNOT_UPDATE_UI 0x28
 #define HNS_FAILED_TO_SIGN_INPUT 0x29
+#define HNS_CANNOT_READ_PREVOUT 0x2a
+#define HNS_CANNOT_READ_INPUT_VALUE 0x2b
+#define HNS_CANNOT_READ_SEQUENCE 0x2c
 
 /**
  * Returns the application's version number.

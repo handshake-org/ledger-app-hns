@@ -30,57 +30,51 @@
  * detail is currently being parsed.
  */
 #define PREVOUT 0x00
-#define VALUE 0x01
-#define SEQUENCE 0x02
-#define OUTPUTS 0x03
+#define SEQUENCE 0x01
+#define OUTPUTS 0x02
 
-/* Inputs are limited due to RAM limitations. */
-#define MAX_INPUTS 10
-
-/**
- * HNS transaction input representation.
- */
+/* Context representing the signing details for an input. */
 typedef struct hns_input_s {
   uint8_t prev[36];
   uint8_t val[8];
   uint8_t seq[4];
+  uint8_t type[4];
+  uint8_t depth;
+  uint32_t path[HNS_MAX_DEPTH];
+  hns_varint_t script_ctr;
 } hns_input_t;
 
-/**
- * Global context used to handle parsing and signing state.
- */
+/* Global context used to handle parsing and signing state. */
 typedef struct hns_apdu_signature_ctx_t {
   bool tx_parsed;
-  hns_input_t ins[MAX_INPUTS];
+  uint8_t next_item;
   uint8_t ins_len;
+  uint8_t ins_ctr;
   uint8_t outs_len;
+  hns_varint_t outs_size;
   uint8_t ver[4];
   uint8_t prevs[32];
   uint8_t seqs[32];
   uint8_t outs[32];
   uint8_t txid[32];
   uint8_t locktime[4];
+  hns_input_t curr_input;
 } hns_apdu_signature_ctx_t;
 
-/**
- * Context used to handle the device's UI.
- */
+/* Context used to handle the device's UI. */
 static ledger_ui_ctx_t *ui = NULL;
 
-/**
- * Context used to handle parsing and signing state.
- */
+/* Context used to handle parsing and signing state. */
 static hns_apdu_signature_ctx_t ctx;
 
-/**
- * Hashing context for signature hash.
- */
-static blake2b_ctx hash;
+/* General purpose hashing context. */
+static blake2b_ctx blake1;
 
-/**
- * Hashing context for txid.
- */
-static blake2b_ctx txid;
+/* General purpose hashing context. */
+static blake2b_ctx blake2;
+
+/* General purpose hashing context. */
+static blake2b_ctx blake3;
 
 /**
  * Parses transactions details, generates txid & begins sighash.
@@ -93,18 +87,18 @@ static blake2b_ctx txid;
  */
 static inline uint16_t
 parse(bool initial_msg, uint16_t *len, volatile uint8_t *buf) {
-  static uint8_t i;
-  static uint8_t next_item;
-  static uint8_t outs_size;
+  blake2b_ctx *txid = &blake1;
+  blake2b_ctx *prevs = &blake2;
+  blake2b_ctx *seqs = &blake3;
+  blake2b_ctx *outs = &blake3; /* blake3 re-initialized before use */
 
-  // If this is the initial message for a new transaction,
-  // clear all previous transaction details and parser state.
+  /* If initial msg, clear previous tx details and parser state. */
   if (initial_msg) {
-    i = 0;
-    next_item = 0;
-    outs_size = 0;
-
     memset(&ctx, 0, sizeof(hns_apdu_signature_ctx_t));
+
+    blake2b_init(txid, 32, NULL, 0);
+    blake2b_init(prevs, 32, NULL, 0);
+    blake2b_init(seqs, 32, NULL, 0);
 
     ledger_apdu_cache_clear();
 
@@ -117,30 +111,26 @@ parse(bool initial_msg, uint16_t *len, volatile uint8_t *buf) {
     if (!read_u8(&buf, len, &ctx.ins_len))
       THROW(HNS_CANNOT_READ_INPUTS_LEN);
 
-    if (ctx.ins_len > MAX_INPUTS)
-      THROW(HNS_INCORRECT_INPUTS_LEN);
-
     if (!read_u8(&buf, len, &ctx.outs_len))
       THROW(HNS_CANNOT_READ_OUTPUTS_LEN);
 
-    if (!read_varint(&buf, len, &outs_size))
+    if (!read_varint(&buf, len, &ctx.outs_size))
       THROW(HNS_CANNOT_READ_OUTPUTS_SIZE);
 
-    blake2b_init(&txid, 32, NULL, 0);
-    blake2b_update(&txid, ctx.ver, sizeof(ctx.ver));
-    blake2b_update(&txid, &ctx.ins_len, sizeof(ctx.ins_len));
+    blake2b_update(txid, ctx.ver, sizeof(ctx.ver));
+    blake2b_update(txid, &ctx.ins_len, sizeof(ctx.ins_len));
   }
 
-  hns_input_t *in = NULL;
+  hns_input_t in;
 
-  if (i < ctx.ins_len)
-    in = &ctx.ins[i];
-
-  if (in == NULL)
-    if (next_item != OUTPUTS)
+  if (ctx.ins_ctr == ctx.ins_len)
+    if (ctx.next_item != OUTPUTS)
       THROW(HNS_INCORRECT_PARSER_STATE);
 
-  // If cache is full, flush to apdu buffer.
+  if (ctx.ins_ctr > ctx.ins_len)
+    THROW(HNS_INCORRECT_PARSER_STATE);
+
+  /* If cache is full, flush to apdu buffer. */
   uint8_t cache_len = ledger_apdu_cache_check();
 
   if (cache_len) {
@@ -155,74 +145,62 @@ parse(bool initial_msg, uint16_t *len, volatile uint8_t *buf) {
   for (;;) {
     bool should_continue = false;
 
-    switch(next_item) {
+    switch(ctx.next_item) {
       case PREVOUT: {
-        if (!read_bytes(&buf, len, &in->prev, sizeof(in->prev)))
+        if (!read_bytes(&buf, len, in.prev, sizeof(in.prev)))
           break;
 
-        blake2b_update(&txid, in->prev, sizeof(in->prev));
-        next_item++;
-      }
-
-      case VALUE: {
-        if (!read_bytes(&buf, len, &in->val, sizeof(in->val)))
-          break;
-
-        next_item++;
+        blake2b_update(prevs, in.prev, sizeof(in.prev));
+        blake2b_update(txid, in.prev, sizeof(in.prev));
+        ctx.next_item++;
       }
 
       case SEQUENCE: {
-        if (!read_bytes(&buf, len, &in->seq, sizeof(in->seq)))
+        if (!read_bytes(&buf, len, in.seq, sizeof(in.seq)))
           break;
 
-        blake2b_update(&txid, in->seq, sizeof(in->seq));
-        next_item++;
+        blake2b_update(seqs, in.seq, sizeof(in.seq));
+        blake2b_update(txid, in.seq, sizeof(in.seq));
+        ctx.next_item++;
 
-        if (++i < ctx.ins_len) {
-          in = &ctx.ins[i];
-          next_item = PREVOUT;
+        if (++ctx.ins_ctr < ctx.ins_len) {
+          memset(&in, 0, sizeof(hns_input_t));
+          ctx.next_item = PREVOUT;
           should_continue = true;
           break;
         }
 
-        blake2b_init(&hash, 32, NULL, 0);
+        blake2b_final(prevs, ctx.prevs);
+        blake2b_final(seqs, ctx.seqs);
 
-        for (i = 0; i < ctx.ins_len; i++)
-          blake2b_update(&hash, ctx.ins[i].prev, sizeof(ctx.ins[i].prev));
+        /* Commit to output vector length */
+        blake2b_update(txid, &ctx.outs_len, sizeof(ctx.outs_len));
 
-        blake2b_final(&hash, ctx.prevs);
-        blake2b_init(&hash, 32, NULL, 0);
-
-        for (i = 0; i < ctx.ins_len; i++)
-          blake2b_update(&hash, ctx.ins[i].seq, sizeof(ctx.ins[i].seq));
-
-        blake2b_final(&hash, ctx.seqs);
-        blake2b_init(&hash, 32, NULL, 0);
-        blake2b_update(&txid, &ctx.outs_len, sizeof(ctx.outs_len));
+        /* Re-initialze the sighash context for outputs commitment. */
+        blake2b_init(outs, 32, NULL, 0);
       }
 
       case OUTPUTS: {
         if (*len > 0) {
-          // Due to sizes reaching up to +500 bytes,
-          // the outputs are hashed immediately to save RAM.
-          blake2b_update(&txid, buf, *len);
-          blake2b_update(&hash, buf, *len);
-          outs_size -= *len;
+          /* Outputs are hashed immediately to save RAM. */
+          blake2b_update(txid, buf, *len);
+          blake2b_update(outs, buf, *len);
+          ctx.outs_size -= *len;
           buf += *len;
           *len = 0;
         }
 
-        if (outs_size < 0)
+        if (ctx.outs_size < 0)
           THROW(HNS_INCORRECT_PARSER_STATE);
 
-        if (outs_size > 0)
+        if (ctx.outs_size > 0)
           break;
 
-        blake2b_update(&txid, ctx.locktime, sizeof(ctx.locktime));
-        blake2b_final(&txid, ctx.txid);
-        blake2b_final(&hash, ctx.outs);
+        blake2b_update(txid, ctx.locktime, sizeof(ctx.locktime));
+        blake2b_final(txid, ctx.txid);
+        blake2b_final(outs, ctx.outs);
         ctx.tx_parsed = true;
-        next_item++;
+        ctx.next_item++;
         break;
       }
 
@@ -250,7 +228,8 @@ parse(bool initial_msg, uint16_t *len, volatile uint8_t *buf) {
 
 /**
  * Parses sighash, path, and input details, then returns a signature
- * for the specified input.
+ * for the specified input. May require more than one message for
+ * longer scripts.
  *
  * In:
  * @param len is length of input buffer.
@@ -266,28 +245,18 @@ sign(
   volatile uint8_t *sig,
   volatile uint8_t *flags
 ) {
-  static uint8_t i;
-  static uint8_t type[4];
-  static uint8_t depth;
-  static uint32_t path[HNS_MAX_DEPTH];
-  static hns_varint_t script_ctr;
+  if (!ctx.tx_parsed)
+    THROW(HNS_INCORRECT_PARSER_STATE);
 
-  // Currently, only SIGHASH_ALL is supported.
   const uint32_t sighash_all = 1;
+  hns_input_t *in = &ctx.curr_input;
+  blake2b_ctx *hash = &blake1;
 
-  // To save on RAM the tx inputs are hashed immediately,
-  // instead of being represented in memory. This may result
-  // in multiple messages being sent before a signature is
-  // returned. The path, index, sighash type, and script len
-  // are only sent with the first message.
   if (initial_msg) {
-    if (!ctx.tx_parsed)
-      THROW(HNS_INCORRECT_PARSER_STATE);
-
     uint8_t path_info = 0;
     uint8_t non_address = 0;
 
-    if (!read_bip44_path(&buf, len, &depth, path, &path_info))
+    if (!read_bip44_path(&buf, len, &in->depth, in->path, &path_info))
       THROW(HNS_CANNOT_READ_BIP44_PATH);
 
     non_address = path_info & HNS_BIP44_NON_ADDR;
@@ -295,59 +264,62 @@ sign(
     if (non_address)
       THROW(HNS_INCORRECT_SIGNATURE_PATH);
 
-    if (!read_u8(&buf, len, &i))
-      THROW(HNS_CANNOT_READ_INPUT_INDEX);
-
-    if (i > ctx.ins_len)
-      THROW(HNS_INCORRECT_INPUT_INDEX);
-
-    if (!read_bytes(&buf, len, type, sizeof(type)))
+    if (!read_bytes(&buf, len, in->type, sizeof(in->type)))
       THROW(HNS_CANNOT_READ_SIGHASH_TYPE);
 
-    if (memcmp(type, &sighash_all, sizeof(type)))
+    if (memcmp(in->type, &sighash_all, sizeof(in->type)))
       THROW(HNS_INCORRECT_SIGHASH_TYPE);
 
-    if (!peek_varint(&buf, len, &script_ctr))
+    if (!read_bytes(&buf, len, in->prev, sizeof(in->prev)))
+      THROW(HNS_CANNOT_READ_PREVOUT);
+
+    if (!read_bytes(&buf, len, in->val, sizeof(in->val)))
+      THROW(HNS_CANNOT_READ_INPUT_VALUE);
+
+    if (!read_bytes(&buf, len, in->seq, sizeof(in->seq)))
+      THROW(HNS_CANNOT_READ_SEQUENCE);
+
+    if (!peek_varint(&buf, len, &in->script_ctr))
       THROW(HNS_CANNOT_PEEK_SCRIPT_LEN);
 
     uint8_t script_len[5] = {0};
-    uint8_t sz = size_varint(script_ctr);
+    uint8_t sz = size_varint(in->script_ctr);
 
     if (!read_bytes(&buf, len, script_len, sz))
       THROW(HNS_CANNOT_READ_SCRIPT_LEN);
 
-    blake2b_init(&hash, 32, NULL, 0);
-    blake2b_update(&hash, ctx.ver, sizeof(ctx.ver));
-    blake2b_update(&hash, ctx.prevs, sizeof(ctx.prevs));
-    blake2b_update(&hash, ctx.seqs, sizeof(ctx.seqs));
-    blake2b_update(&hash, ctx.ins[i].prev, sizeof(ctx.ins[i].prev));
-    blake2b_update(&hash, script_len, sz);
+    blake2b_init(hash, 32, NULL, 0);
+    blake2b_update(hash, ctx.ver, sizeof(ctx.ver));
+    blake2b_update(hash, ctx.prevs, sizeof(ctx.prevs));
+    blake2b_update(hash, ctx.seqs, sizeof(ctx.seqs));
+    blake2b_update(hash, in->prev, sizeof(in->prev));
+    blake2b_update(hash, script_len, sz);
   }
 
-  script_ctr -= *len;
+  in->script_ctr -= *len;
 
-  blake2b_update(&hash, buf, *len);
+  blake2b_update(hash, buf, *len);
 
-  if (script_ctr < 0)
+  if (in->script_ctr < 0)
     THROW(HNS_INCORRECT_PARSER_STATE);
 
-  if (script_ctr > 0)
+  if (in->script_ctr > 0)
     return 0;
 
   uint8_t digest[32];
   uint8_t sig_len = 64;
 
-  blake2b_update(&hash, ctx.ins[i].val, sizeof(ctx.ins[i].val));
-  blake2b_update(&hash, ctx.ins[i].seq, sizeof(ctx.ins[i].seq));
-  blake2b_update(&hash, ctx.outs, sizeof(ctx.outs));
-  blake2b_update(&hash, ctx.locktime, sizeof(ctx.locktime));
-  blake2b_update(&hash, type, sizeof(type));
-  blake2b_final(&hash, digest);
+  blake2b_update(hash, in->val, sizeof(in->val));
+  blake2b_update(hash, in->seq, sizeof(in->seq));
+  blake2b_update(hash, ctx.outs, sizeof(ctx.outs));
+  blake2b_update(hash, ctx.locktime, sizeof(ctx.locktime));
+  blake2b_update(hash, in->type, sizeof(in->type));
+  blake2b_final(hash, digest);
 
-  if(!ledger_ecdsa_sign(path, depth, digest, sizeof(digest), sig, sig_len))
+  if(!ledger_ecdsa_sign(in->path, in->depth, digest, sizeof(digest), sig, sig_len))
     THROW(HNS_FAILED_TO_SIGN_INPUT);
 
-  // Add sighash type to the end of the signature (always SIGHASH_ALL for now).
+  /* Append signature with sighash type (always SIGHASH_ALL for now) */
   sig[sig_len++] = sighash_all;
 
 #if defined(TARGET_NANOS)
