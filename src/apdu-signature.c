@@ -78,6 +78,8 @@ static blake2b_ctx blake3;
 
 /**
  * Parses transactions details, generates txid & begins sighash.
+ * Will require more than one message for serialized transactions
+ * longer than 255 bytes.
  *
  * In:
  * @param buf is the input buffer.
@@ -85,8 +87,8 @@ static blake2b_ctx blake3;
  * @param reset indicates if parser state should be reset.
  * @return the length of the APDU response (always 0).
  */
-static inline uint16_t
-parse(bool initial_msg, uint16_t *len, volatile uint8_t *buf) {
+static inline uint8_t
+parse(bool initial_msg, uint8_t *len, volatile uint8_t *buf) {
   blake2b_ctx *txid = &blake1;
   blake2b_ctx *prevs = &blake2;
   blake2b_ctx *seqs = &blake3;
@@ -134,7 +136,7 @@ parse(bool initial_msg, uint16_t *len, volatile uint8_t *buf) {
   uint8_t cache_len = ledger_apdu_cache_check();
 
   if (cache_len) {
-    uint16_t offset = *len;
+    uint8_t offset = *len;
 
     *len += ledger_apdu_cache_flush(offset);
 
@@ -228,8 +230,8 @@ parse(bool initial_msg, uint16_t *len, volatile uint8_t *buf) {
 
 /**
  * Parses sighash, path, and input details, then returns a signature
- * for the specified input. May require more than one message for
- * longer scripts.
+ * for the specified input. Will require more than one message for
+ * scripts longer than 182 bytes (including varint length prefix).
  *
  * In:
  * @param len is length of input buffer.
@@ -240,7 +242,7 @@ parse(bool initial_msg, uint16_t *len, volatile uint8_t *buf) {
 static inline uint8_t
 sign(
   bool initial_msg,
-  uint16_t *len,
+  uint8_t *len,
   volatile uint8_t *buf,
   volatile uint8_t *sig,
   volatile uint8_t *flags
@@ -342,11 +344,11 @@ sign(
   return sig_len;
 }
 
-volatile uint16_t
+volatile uint8_t
 hns_apdu_get_input_signature(
   uint8_t initial_msg,
   uint8_t mode,
-  uint16_t len,
+  uint8_t len,
   volatile uint8_t *in,
   volatile uint8_t *out,
   volatile uint8_t *flags

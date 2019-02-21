@@ -168,11 +168,11 @@ client and the device. The first instruction param (P1) indicates
 if a message is the initial one. An initial parse message clears
 any cached transaction details from memory and restarts the signing
 process. The initial message in a signature request should pass the
-path of the signing key, the input's index, the sighash type, and the
-first X bytes of the input script which exhaust the apdu buffer size
-(336 bytes). If the entire script does not fit into the first message,
-addtional messages will be necessary to send the rest of the script.
-These additional messages should only include the remaining script bytes.
+path of the signing key, the sighash type, the input, and the first
+182 bytes of the input script (including the varint script size).
+If the entire script does not fit into the first message, additional
+messages will be necessary to send the rest of the script. The
+subsequent messages should only include the remaining script bytes.
 
 The second instruction param (P2) indicates the operation mode.
 
@@ -192,9 +192,9 @@ will be rejected.
 
 ##### Input data
 
->NOTE: the tx details should be sent over in packets of up to
-331 bytes. The apdu exchange buffer is 336 bytes and the first
-5 bytes are used for the command header.
+>NOTE: The transaction details should be sent in packets of up to
+255 bytes. This is because the APDU command data length is represented
+as a uint8_t.
 
 | Field         | Len |
 | ------------- | --- |
@@ -206,15 +206,12 @@ will be rejected.
 | *inputs       | var |
 | **outputs     | var |
 
-\* Input serialization
+\* Input serialization for parse mode
 
 | Field         | Len |
 | ------------- | --- |
 | prevout       | 36  |
-| value         | 8   |
 | sequence      | 4   |
-| script length | var |
-| script        | var |
 
 ** Output serialization
 
@@ -260,11 +257,27 @@ None
 | Field               | Len |
 | ------------------- | --- |
 | *encoded BIP32 path | var |
-| input index         | 1   |
 | sighash type        | 4   |
+| **input             | var |
 
 \* See serialization format [above](#encoded-path). Non-standard BIP44 address
 paths will be rejected.
+
+** Input serialization for sign mode
+
+| Field         | Len |
+| ------------- | --- |
+| prevout       | 36  |
+| value         | 8   |
+| sequence      | 4   |
+| script length | var |
+| script        | var |
+
+>NOTE: If the size of the input data is larger than the APDU buffer size, the
+script must be split into smaller packet sizes and sent in multiple messages.
+Subsequent messages should only send the remaining script bytes. All other
+input data i.e., the path, sighash type, prevout, value, sequence, and script
+length, should not be resent.
 
 ##### Output data
 
@@ -272,6 +285,10 @@ paths will be rejected.
 | ---------- | --- |
 | signature  | var |
 
+>NOTE: The application keeps track of the number of script bytes it has parsed
+and will return a SUCCESS status word, without any response data, if it
+successfully parsed the input data, but is expecting more bytes. After parsing
+all script bytes, the signature will be generated and returned.
 
 ## Contribution and License Agreement
 

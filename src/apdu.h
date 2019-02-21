@@ -80,11 +80,11 @@
  * @return the status word
  */
 
-volatile uint16_t
+volatile uint8_t
 hns_apdu_get_app_version(
   uint8_t p1,
   uint8_t p2,
-  uint16_t len,
+  uint8_t len,
   volatile uint8_t *in,
   volatile uint8_t *out,
   volatile uint8_t *flags
@@ -105,11 +105,11 @@ hns_apdu_get_app_version(
  * @return the status word
  */
 
-volatile uint16_t
+volatile uint8_t
 hns_apdu_get_public_key(
   uint8_t p1,
   uint8_t p2,
-  uint16_t len,
+  uint8_t len,
   volatile uint8_t *in,
   volatile uint8_t *out,
   volatile uint8_t *flags
@@ -130,11 +130,11 @@ hns_apdu_get_public_key(
  * @return the status word
  */
 
-volatile uint16_t
+volatile uint8_t
 hns_apdu_get_input_signature(
   uint8_t p1,
   uint8_t p2,
-  uint16_t len,
+  uint8_t len,
   volatile uint8_t *in,
   volatile uint8_t *out,
   volatile uint8_t *flags
