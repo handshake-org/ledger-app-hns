@@ -358,9 +358,10 @@ hns_apdu_get_input_signature(
       if (!ledger_unlocked())
         THROW(HNS_SECURITY_CONDITION_NOT_SATISFIED);
 
-      if (mode == PARSE)
+      if (mode == PARSE) {
         ui = ledger_ui_init_session();
         ui->must_confirm = true;
+      }
       break;
 
     case NO:
