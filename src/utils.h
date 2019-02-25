@@ -297,16 +297,16 @@ read_bip44_path(
 
   /**
    * Returns info regarding whether the parsed path
-   * leads to a standard BIP44 address or account.
+   * leads to a standard BIP44 address or is non-standard.
    * - Setting the lsb indicates the path is not an address.
-   * - Setting the second lsb indicates the path is non standard.
+   * - Setting the second lsb indicates the path is non-standard.
    */
   *info = 0;
 
   if (*depth != HNS_BIP44_ADDR_DEPTH)
-    *info = HNS_BIP44_NON_ADDR;
+    *info |= HNS_BIP44_NON_ADDR;
 
-  if (*info && *depth != HNS_BIP44_ACCT_DEPTH)
+  if (*depth > HNS_BIP44_ADDR_DEPTH)
     *info |= HNS_BIP44_NON_STD;
 
   uint8_t level;
