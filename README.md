@@ -23,6 +23,15 @@ Run `make docker` to compile the application in a Docker container.
 The Dockerfile is heavily inspired by
 <https://github.com/mkrufky/ledger-app-eth-dockerized>.
 
+To load the app on a device outside of Ledger Live, clone
+[nanos-secure-sdk](https://github.com/LedgerHQ/nanos-secure-sdk), check
+out the branch that corresponds to the device firmware,
+create a python virtual environment and install the dependencies,
+set the environment variable `BOLOS_SDK` to be the absolute path
+to the cloned git repo and then run `make docker-load`.
+Be sure that the device is plugged in, unlocked and not currently
+connected to another application.
+
 
 ## APDU Command Specification
 
