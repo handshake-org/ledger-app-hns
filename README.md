@@ -11,29 +11,77 @@ details for this application. For more general information on developing
 for Ledger personal security devices please read the official Ledger developer
 documentation [here][ledger].
 
-For a walkthrough of a Ledger application, check out the [nanos-app-sia][sia]
+For a walk-through of a Ledger application, check out the [nanos-app-sia][sia]
 project. The Nebulous Inc. developers have done a wonderful job of documenting
 both the high-level architecture and low-level implementation details of
 Nano S app development.
 
+<br/>
 
-## Docker Build
+## Docker Install
 
-Run `make docker` to compile the application in a Docker container.
+To load the app on your Ledger Nano S using Docker:
+
+- Clone this git repo.
+
+- Checkout the branch that corresponds to your device's firmware:
+  `nanos-1422`, `nanos-1552`.
+
+- Clone [nanos-secure-sdk][sdk] to a separate directory.
+
+- Checkout the branch that corresponds to your device's firmware:
+  `nanos-1422`, `nanos-1552`.
+
+- Set the `BOLOS_SDK` environment variable to the absolute path
+  of the sdk's repo.
+
+- Clone and install [blue-loader-python][loader]
+  (be sure to create a python2 virtual environment).
+
+- Connect and unlock the Ledger Nano S.
+
+- Navigate to the device's main menu.
+
+- Run `make docker-load` in the root of this git repo.
+
 The Dockerfile is heavily inspired by
 <https://github.com/mkrufky/ledger-app-eth-dockerized>.
 
-To load the app on a device outside of Ledger Live:
+[sdk]: https://github.com/ledgerhq/nanos-secure-sdk
+[loader]: https://github.com/ledgerhq/blue-loader-python
 
-- clone [nanos-secure-sdk](https://github.com/LedgerHQ/nanos-secure-sdk)
-- check out the branch that corresponds to the device firmware
-- create a python 2 virtual environment and install the dependencies
-- set the environment variable `BOLOS_SDK` to the absolute path of
-  the cloned git repo
-- be sure that the device is plugged in, unlocked and not currently
-  connected to another application.
-- run `make docker-load` in the root of this git repo
+<br/>
 
+## Linux Install
+
+To load the app on your Ledger Nanos S without using Docker:
+
+- Follow the setup instructions [here][setup].
+
+- Run `make load` in the root of this git repo.
+
+>Note: macOS and Windows are not supported. If you are not running, Linux
+please follow the instructions above for installation with Docker.
+
+[setup]: https://ledger.readthedocs.io/en/latest/userspace/getting_started.html
+
+<br/>
+
+## Tests
+
+A suite of tests have been added to the [client library][tests]. They include
+device tests with mocked transaction data, and end-to-end tests involving a
+live, `hsd` node. All tests require a Ledger Nano S configured with the
+following test seed:
+
+```
+abandon abandon abandon abandon abandon abandon
+abandon abandon abandon abandon abandon about
+```
+
+[tests]: https://github.com/boymanjor/hsd-ledger#end-to-end-tests
+
+<br/>
 
 ## APDU Command Specification
 
@@ -60,12 +108,13 @@ All data is represented as little-endian bytestrings except where noted.
 allows for a larger LC field. A more general description of the APDU message protocol
 can be found [here][apdu].
 
-## Commands
+<br/>
+
+## Application Commands
 
 - [GET APP VERSION](#get-app-version)
 - [GET PUBLIC KEY](#get-public-key)
 - [GET INPUT SIGNATURE](#get-input-signature)
-
 
 ### GET APP VERSION
 #### Description
@@ -90,6 +139,8 @@ None
 | major version | 1   |
 | minor version | 1   |
 | patch version | 1   |
+
+[^ Back to top.](#application-commands)
 
 ### GET PUBLIC KEY
 #### Description
@@ -162,6 +213,7 @@ displayed for derivations past the address index level.
 | address length                  | 1   |
 | address                         | var |
 
+[^ Back to top.](#application-commands)
 
 ### GET INPUT SIGNATURE
 #### Description
@@ -301,12 +353,17 @@ and will return a SUCCESS status word, without any response data, if it
 successfully parsed the input data, but is expecting more bytes. After parsing
 all script bytes, the signature will be generated and returned.
 
+[^ Back to top.](#application-commands)
+
+<br/>
+
 ## Contribution and License Agreement
 
 If you contribute code to this project, you are implicitly allowing your code
 to be distributed under the MIT license. You are also implicitly verifying that
 all code is your original work. `</legalese>`
 
+<br/>
 
 ## License
 
