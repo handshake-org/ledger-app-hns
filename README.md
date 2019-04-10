@@ -18,60 +18,143 @@ Nano S app development.
 
 <br/>
 
-## Docker Install
-
-To load the app on your Ledger Nano S using Docker:
-
-- Clone this git repo.
-
-- Checkout the branch that corresponds to your device's firmware:
-  `nanos-1422`, `nanos-1552`.
-
-- Clone [nanos-secure-sdk][sdk] to a separate directory.
-
-- Checkout the branch that corresponds to your device's firmware:
-  `nanos-1422`, `nanos-1552`.
-
-- Set the `BOLOS_SDK` environment variable to the absolute path
-  of the sdk's repo.
-
-- Clone and install [blue-loader-python][loader]
-  (be sure to create a python2 virtual environment).
-
-- Connect and unlock the Ledger Nano S.
-
-- Navigate to the device's main menu.
-
-- Run `make docker-load` in the root of this git repo.
-
-The Dockerfile is heavily inspired by
-<https://github.com/mkrufky/ledger-app-eth-dockerized>.
-
-[sdk]: https://github.com/ledgerhq/nanos-secure-sdk
-[loader]: https://github.com/ledgerhq/blue-loader-python
-
-<br/>
-
 ## Linux Install
 
 To load the app on your Ledger Nanos S without using Docker:
-
 - Follow the setup instructions [here][setup].
-
 - Run `make load` in the root of this git repo.
 
->Note: macOS and Windows are not supported. If you are not running, Linux
-please follow the instructions above for installation with Docker.
+>Note: macOS and Windows are not supported. If you are _not_ running Linux,
+please follow the Docker instructions below.
 
 [setup]: https://ledger.readthedocs.io/en/latest/userspace/getting_started.html
+
+<br/>
+
+## Docker Install
+
+To load the app on your Ledger Nanos S using Docker, follow the
+instructions below.
+
+>Note: all example commands begin with the $ symbol. This symbol signifies
+a shell command prompt. The command prompt in your shell may be different.
+Do not copy the $ symbol when using the commands in your shell.
+
+### Install Dependencies
+First, be sure to have the following development dependencies installed on
+your machine:
+- [Docker](https://www.docker.com/get-started)
+- Python 2.7 development environment (`python2`, `python2-dev`, `virtualenv`)
+- `make`
+- `gcc`
+- `g++`
+- `git`
+
+Next, create a directory to store the [Nano S Secure SDK][sdk] and the Python
+virtual environment for the [Python Loader tool][loader]. The SDK is used in
+`ledger-app-hns` to interact with the device's operating system and crypto
+libraries. The loader tool loads compiled applications onto your Ledger Nano S.
+
+It does not matter where you store the SDK or the virtual environment.
+For simplicity, this guide stores them together in a directory called
+`ledger-tools`.
+
+To begin, open a terminal shell and run:
+```bash
+$ mkdir ledger-tools
+$ cd ledger-tools
+```
+
+### Install Nano S Secure SDK
+Before installing the SDK, you will need to know what firmware version is
+running on your Ledger Nano S. If you do not know how to check your firmware
+version, follow the instructions [here][firmware]. This application supports
+the following versions: `1.5.5` and `1.4.2`.
+
+#### Install SDK version 1.5.5
+- Clone the git repo and check out branch `nanos-1552`:
+```bash
+$ git clone https://github.com/ledgerhq/nanos-secure-sdk.git
+$ cd nanos-secure-sdk
+$ git checkout nanos-1552
+```
+
+- Set the `BOLOS_SDK` environment variable to the absolute path
+  of the SDK repo:
+```bash
+$ export BOLOS_SDK=`pwd`
+```
+
+#### Install SDK version 1.4.2
+- Clone the git repo and check out branch `nanos-1422`:
+```bash
+$ git clone https://github.com/ledgerhq/nanos-secure-sdk.git
+$ cd nanos-secure-sdk
+$ git checkout nanos-1422
+```
+
+- Set the `BOLOS_SDK` environment variable to the absolute path
+  of the SDK repo:
+```bash
+$ export BOLOS_SDK=`pwd`
+```
+
+### Install Python Loader for Ledger Nano S
+Now, you will need to install the Python [loader tool][loader]. This process
+will involve: navigating back to the root of the `ledger-tools` directory,
+creating and activating a Python virtual environment, and installing the loader
+tools (named `ledgerblue`).
+
+To install, run:
+```bash
+$ cd ..
+$ virtualenv ledger
+$ source ledger/bin/activate
+$ pip install ledgerblue
+```
+
+### Install ledger-app-hns
+We are ready to install the application! This process will involve: cloning
+the git repo into the `ledger-tools` directory, checking out the branch that
+corresponds to your device's firmware version, compiling the application, and
+loading it onto your device. The last two steps are triggered by one
+`make` command.
+
+#### For firmware version 1.5.5
+- Clone the git repo and check out branch `nanos-1552`:
+```bash
+$ git clone https://github.com/boymanjor/ledger-app-hns.git
+$ cd ledger-app-hns
+$ git checkout nanos-1552
+```
+
+#### For firmware version 1.4.2
+- Clone the git repo and check out branch `nanos-1422`:
+```bash
+$ git clone https://github.com/boymanjor/ledger-app-hns.git
+$ cd ledger-app-hns
+$ git checkout nanos-1422
+```
+
+#### Compile and Load `ledger-app-hns`
+- Connect the Ledger Nano S to your machine via USB.
+- Unlock the device.
+- Navigate to the device's main menu.
+- Run `make docker-load`.
+- Follow the terminal and on-device instructions (this process takes a while).
+- Once `ledger-app-hns` is installed, install the [client library][hsd-ledger].
+
+[sdk]: https://github.com/ledgerhq/nanos-secure-sdk
+[loader]: https://github.com/ledgerhq/blue-loader-python
+[firmware]: https://support.ledger.com/hc/en-us/articles/360002997193-Check-the-firmware-version
 
 <br/>
 
 ## Tests
 
 A suite of tests have been added to the [client library][tests]. They include
-device tests with mocked transaction data, and end-to-end tests involving a
-live, `hsd` node. All tests require a Ledger Nano S configured with the
+device tests with mocked transaction data, and end-to-end tests involving an
+active, `hsd` node. All tests require a Ledger Nano S configured with the
 following test seed:
 
 ```
@@ -369,8 +452,9 @@ all code is your original work. `</legalese>`
 
 - Copyright (c) 2018, Boyma Fahnbulleh (MIT License).
 
-Parts of this software are based on [ledger-app-btc][btc], [blue-app-nano][nano],
-[nanos-app-sia][sia] and [hnsd][hnsd].
+Parts of this software are based on [ledger-app-btc][btc],
+[blue-app-nano][nano], [nanos-app-sia][sia], [hnsd][hnsd],
+and [ledger-app-eth-dockerized][docker].
 
 ### ledger-app-btc
 
@@ -388,6 +472,10 @@ Parts of this software are based on [ledger-app-btc][btc], [blue-app-nano][nano]
 
 - Copyright (c) 2018, Christopher Jeffrey (MIT License).
 
+### ledger-app-eth-dockerized
+
+- No License
+
 See LICENSE for more info.
 
 [hsd-ledger]: https://github.com/boymanjor/hsd-ledger
@@ -397,3 +485,4 @@ See LICENSE for more info.
 [btc]: https://github.com/ledgerhq/ledger-app-btc
 [nano]: https://github.com/roosmaa/blue-app-nano
 [hnsd]: https://github.com/handshake-org/hnsd
+[docker]: https://github.com/mkrufky/ledger-app-eth-dockerized
