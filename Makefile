@@ -83,7 +83,7 @@ include $(BOLOS_SDK)/Makefile.glyphs
 
 ### variables processed by the common makefile.rules
 ### of the SDK to grab source files and include dirs
-APP_SOURCE_PATH  += src vendor/blake2 vendor/bech32 vendor/base58
+APP_SOURCE_PATH  += src vendor/bech32 vendor/base58
 SDK_SOURCE_PATH  += lib_stusb lib_stusb_impl lib_u2f qrcode
 
 load: all

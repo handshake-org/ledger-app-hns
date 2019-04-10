@@ -6,7 +6,6 @@
 #include <stdbool.h>
 #include <string.h>
 #include "apdu.h"
-#include "blake2b.h"
 #include "ledger.h"
 #include "utils.h"
 
@@ -68,13 +67,13 @@ static ledger_ui_ctx_t *ui = NULL;
 static hns_apdu_signature_ctx_t ctx;
 
 /* General purpose hashing context. */
-static blake2b_ctx blake1;
+static ledger_blake2b_ctx blake1;
 
 /* General purpose hashing context. */
-static blake2b_ctx blake2;
+static ledger_blake2b_ctx blake2;
 
 /* General purpose hashing context. */
-static blake2b_ctx blake3;
+static ledger_blake2b_ctx blake3;
 
 /**
  * Parses transactions details, generates txid & begins sighash.
@@ -89,18 +88,18 @@ static blake2b_ctx blake3;
  */
 static inline uint8_t
 parse(bool initial_msg, uint8_t *len, volatile uint8_t *buf) {
-  blake2b_ctx *txid = &blake1;
-  blake2b_ctx *prevs = &blake2;
-  blake2b_ctx *seqs = &blake3;
-  blake2b_ctx *outs = &blake3; /* blake3 re-initialized before use */
+  ledger_blake2b_ctx *txid = &blake1;
+  ledger_blake2b_ctx *prevs = &blake2;
+  ledger_blake2b_ctx *seqs = &blake3;
+  ledger_blake2b_ctx *outs = &blake3; /* blake3 re-initialized before use */
 
   /* If initial msg, clear previous tx details and parser state. */
   if (initial_msg) {
     memset(&ctx, 0, sizeof(hns_apdu_signature_ctx_t));
 
-    blake2b_init(txid, 32, NULL, 0);
-    blake2b_init(prevs, 32, NULL, 0);
-    blake2b_init(seqs, 32, NULL, 0);
+    ledger_blake2b_init(txid, 32);
+    ledger_blake2b_init(prevs, 32);
+    ledger_blake2b_init(seqs, 32);
 
     ledger_apdu_cache_clear();
 
@@ -119,8 +118,8 @@ parse(bool initial_msg, uint8_t *len, volatile uint8_t *buf) {
     if (!read_varint(&buf, len, &ctx.outs_size))
       THROW(HNS_CANNOT_READ_OUTPUTS_SIZE);
 
-    blake2b_update(txid, ctx.ver, sizeof(ctx.ver));
-    blake2b_update(txid, &ctx.ins_len, sizeof(ctx.ins_len));
+    ledger_blake2b_update(txid, ctx.ver, sizeof(ctx.ver));
+    ledger_blake2b_update(txid, &ctx.ins_len, sizeof(ctx.ins_len));
   }
 
   hns_input_t in;
@@ -152,8 +151,8 @@ parse(bool initial_msg, uint8_t *len, volatile uint8_t *buf) {
         if (!read_bytes(&buf, len, in.prev, sizeof(in.prev)))
           break;
 
-        blake2b_update(prevs, in.prev, sizeof(in.prev));
-        blake2b_update(txid, in.prev, sizeof(in.prev));
+        ledger_blake2b_update(prevs, in.prev, sizeof(in.prev));
+        ledger_blake2b_update(txid, in.prev, sizeof(in.prev));
         ctx.next_item++;
       }
 
@@ -161,8 +160,8 @@ parse(bool initial_msg, uint8_t *len, volatile uint8_t *buf) {
         if (!read_bytes(&buf, len, in.seq, sizeof(in.seq)))
           break;
 
-        blake2b_update(seqs, in.seq, sizeof(in.seq));
-        blake2b_update(txid, in.seq, sizeof(in.seq));
+        ledger_blake2b_update(seqs, in.seq, sizeof(in.seq));
+        ledger_blake2b_update(txid, in.seq, sizeof(in.seq));
         ctx.next_item++;
 
         if (++ctx.ins_ctr < ctx.ins_len) {
@@ -172,21 +171,21 @@ parse(bool initial_msg, uint8_t *len, volatile uint8_t *buf) {
           break;
         }
 
-        blake2b_final(prevs, ctx.prevs);
-        blake2b_final(seqs, ctx.seqs);
+        ledger_blake2b_final(prevs, ctx.prevs);
+        ledger_blake2b_final(seqs, ctx.seqs);
 
         /* Commit to output vector length */
-        blake2b_update(txid, &ctx.outs_len, sizeof(ctx.outs_len));
+        ledger_blake2b_update(txid, &ctx.outs_len, sizeof(ctx.outs_len));
 
         /* Re-initialze the sighash context for outputs commitment. */
-        blake2b_init(outs, 32, NULL, 0);
+        ledger_blake2b_init(outs, 32);
       }
 
       case OUTPUTS: {
         if (*len > 0) {
           /* Outputs are hashed immediately to save RAM. */
-          blake2b_update(txid, buf, *len);
-          blake2b_update(outs, buf, *len);
+          ledger_blake2b_update(txid, buf, *len);
+          ledger_blake2b_update(outs, buf, *len);
           ctx.outs_size -= *len;
           buf += *len;
           *len = 0;
@@ -198,9 +197,9 @@ parse(bool initial_msg, uint8_t *len, volatile uint8_t *buf) {
         if (ctx.outs_size > 0)
           break;
 
-        blake2b_update(txid, ctx.locktime, sizeof(ctx.locktime));
-        blake2b_final(txid, ctx.txid);
-        blake2b_final(outs, ctx.outs);
+        ledger_blake2b_update(txid, ctx.locktime, sizeof(ctx.locktime));
+        ledger_blake2b_final(txid, ctx.txid);
+        ledger_blake2b_final(outs, ctx.outs);
         ctx.tx_parsed = true;
         ctx.next_item++;
         break;
@@ -252,7 +251,7 @@ sign(
 
   const uint32_t sighash_all = 1;
   hns_input_t *in = &ctx.curr_input;
-  blake2b_ctx *hash = &blake1;
+  ledger_blake2b_ctx *hash = &blake1;
 
   if (initial_msg) {
     uint8_t path_info = 0;
@@ -290,17 +289,17 @@ sign(
     if (!read_bytes(&buf, len, script_len, sz))
       THROW(HNS_CANNOT_READ_SCRIPT_LEN);
 
-    blake2b_init(hash, 32, NULL, 0);
-    blake2b_update(hash, ctx.ver, sizeof(ctx.ver));
-    blake2b_update(hash, ctx.prevs, sizeof(ctx.prevs));
-    blake2b_update(hash, ctx.seqs, sizeof(ctx.seqs));
-    blake2b_update(hash, in->prev, sizeof(in->prev));
-    blake2b_update(hash, script_len, sz);
+    ledger_blake2b_init(hash, 32);
+    ledger_blake2b_update(hash, ctx.ver, sizeof(ctx.ver));
+    ledger_blake2b_update(hash, ctx.prevs, sizeof(ctx.prevs));
+    ledger_blake2b_update(hash, ctx.seqs, sizeof(ctx.seqs));
+    ledger_blake2b_update(hash, in->prev, sizeof(in->prev));
+    ledger_blake2b_update(hash, script_len, sz);
   }
 
   in->script_ctr -= *len;
 
-  blake2b_update(hash, buf, *len);
+  ledger_blake2b_update(hash, buf, *len);
 
   if (in->script_ctr < 0)
     THROW(HNS_INCORRECT_PARSER_STATE);
@@ -311,12 +310,12 @@ sign(
   uint8_t digest[32];
   uint8_t sig_len = 64;
 
-  blake2b_update(hash, in->val, sizeof(in->val));
-  blake2b_update(hash, in->seq, sizeof(in->seq));
-  blake2b_update(hash, ctx.outs, sizeof(ctx.outs));
-  blake2b_update(hash, ctx.locktime, sizeof(ctx.locktime));
-  blake2b_update(hash, in->type, sizeof(in->type));
-  blake2b_final(hash, digest);
+  ledger_blake2b_update(hash, in->val, sizeof(in->val));
+  ledger_blake2b_update(hash, in->seq, sizeof(in->seq));
+  ledger_blake2b_update(hash, ctx.outs, sizeof(ctx.outs));
+  ledger_blake2b_update(hash, ctx.locktime, sizeof(ctx.locktime));
+  ledger_blake2b_update(hash, in->type, sizeof(in->type));
+  ledger_blake2b_final(hash, digest);
 
   if(!ledger_ecdsa_sign(in->path, in->depth, digest, sizeof(digest), sig, sig_len))
     THROW(HNS_FAILED_TO_SIGN_INPUT);

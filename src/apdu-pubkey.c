@@ -5,7 +5,6 @@
  */
 #include <string.h>
 #include "apdu.h"
-#include "blake2b.h"
 #include "ledger.h"
 #include "libbase58.h"
 #include "segwit-addr.h"
@@ -58,7 +57,7 @@ static inline void
 encode_addr(char *hrp, uint8_t *pubkey, char *addr) {
   uint8_t hash[20];
 
-  if (blake2b(hash, 20, NULL, 0, pubkey, 33))
+  if (ledger_blake2b(pubkey, 33, hash, 20))
     THROW(HNS_CANNOT_INIT_BLAKE2B_CTX);
 
   if (!segwit_addr_encode(addr, hrp, 0, hash, 20))

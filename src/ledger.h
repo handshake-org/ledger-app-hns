@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include "os.h"
 #include "os_io_seproxyhal.h"
+#include "cx.h"
 
 /**
  * Maximum BIP32 derivation depth.
@@ -21,6 +22,11 @@
  * Exception used to initiate an application reset.
  */
 #define LEDGER_RESET EXCEPTION_IO_RESET
+
+/**
+ * Blake2b context.
+ */
+typedef cx_blake2b_t ledger_blake2b_ctx;
 
 /**
  * BIP32 ECDSA Extended Public Key.
@@ -155,6 +161,54 @@ ledger_apdu_cache_clear(void);
  */
 uint16_t
 ledger_apdu_exchange(uint8_t flags, uint16_t len, uint16_t sw);
+
+/**
+ * Helper function that generates a blake2b digest.
+ *
+ * @param [in] data is the data to hash.
+ * @param [in] data_sz is the length of the data, in bytes.
+ * @param [out] digest is the hash digest.
+ * @param [in] digest_sz is the length of the hash digest, in bytes.
+ */
+int
+ledger_blake2b(
+  void const * data,
+  size_t data_sz,
+  void const *digest,
+  size_t digest_sz
+);
+
+/**
+ * Initializes the blake2b hash context.
+ *
+ * @param [in] ctx is the blake2b context.
+ * @param [in] digest_sz is the length of the hash digest, in bytes.
+ */
+void
+ledger_blake2b_init(ledger_blake2b_ctx *ctx, size_t digest_sz);
+
+/**
+ * Updates the blake2b hash context.
+ *
+ * @param [in] ctx is the blake2b context.
+ * @param [in] data is the data to hash.
+ * @param [in] data_sz is the length of the data, in bytes.
+ */
+void
+ledger_blake2b_update(
+  ledger_blake2b_ctx *ctx,
+  void const *data,
+  size_t data_sz
+);
+
+/**
+ * Returns blake2b hash digest.
+ *
+ * @param [in] ctx is the blake2b context.
+ * @param [out] digest is the hash digest.
+ */
+void
+ledger_blake2b_final(ledger_blake2b_ctx *ctx, void *digest);
 
 /**
  * Derives an ECDSA extended public key.

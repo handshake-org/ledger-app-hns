@@ -156,6 +156,41 @@ ledger_apdu_exchange(uint8_t flags, uint16_t len, uint16_t sw) {
   return io_exchange(CHANNEL_APDU | flags, len);
 }
 
+int
+ledger_blake2b(
+  void const * data,
+  size_t data_sz,
+  void const *digest,
+  size_t digest_sz
+) {
+  if (digest_sz < 1 || digest_sz > 64)
+    return 1;
+
+  cx_blake2b_t ctx;
+  cx_blake2b_init(&ctx, digest_sz * 8);
+  cx_hash(&ctx.header, CX_LAST, data, data_sz, digest);
+  return 0;
+}
+
+void
+ledger_blake2b_init(ledger_blake2b_ctx *ctx, size_t digest_sz) {
+  cx_blake2b_init(ctx, digest_sz * 8);
+}
+
+void
+ledger_blake2b_update(
+  ledger_blake2b_ctx *ctx,
+  void const *data,
+  size_t data_sz
+) {
+  cx_hash(&ctx->header, 0, data, data_sz, NULL);
+}
+
+void
+ledger_blake2b_final(ledger_blake2b_ctx *ctx, void *digest) {
+  cx_hash(&ctx->header, CX_LAST, NULL, 0, digest);
+}
+
 static void
 ledger_ecdsa_derive_node(
   uint32_t *path,
