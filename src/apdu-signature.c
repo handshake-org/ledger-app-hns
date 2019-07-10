@@ -32,6 +32,17 @@
 #define SEQUENCE 0x01
 #define OUTPUTS 0x02
 
+/**
+ * These constants are used to determine sighash types for
+ * the input signatures.
+ */
+#define SIGHASH_ALL 0x01
+#define SIGHASH_NONE 0x02
+#define SIGHASH_SINGLE 0x03
+#define SIGHASH_SINGLEREVERSE 0x04
+#define SIGHASH_NOINPUT 0x40
+#define SIGHASH_ANYONECANPAY 0x80
+
 /* Context representing the signing details for an input. */
 typedef struct hns_input_s {
   uint8_t prev[36];
@@ -58,6 +69,7 @@ typedef struct hns_apdu_signature_ctx_t {
   uint8_t txid[32];
   uint8_t locktime[4];
   hns_input_t curr_input;
+  hns_varint_t curr_output_size;
 } hns_apdu_signature_ctx_t;
 
 /* Context used to handle the device's UI. */
@@ -228,7 +240,7 @@ parse(bool initial_msg, uint8_t *len, volatile uint8_t *buf) {
 
 
 /**
- * Parses sighash, path, and input details, then returns a signature
+ * Parses sighash type, path, and input details, then returns a signature
  * for the specified input. Will require more than one message for
  * scripts longer than 182 bytes (including varint length prefix).
  *
@@ -249,13 +261,17 @@ sign(
   if (!ctx.tx_parsed)
     THROW(HNS_INCORRECT_PARSER_STATE);
 
-  const uint32_t sighash_all = 1;
+  const uint8_t ZERO_HASH[32] = {0};
   hns_input_t *in = &ctx.curr_input;
+  hns_varint_t *output_size = &ctx.curr_output_size;
   ledger_blake2b_ctx *hash = &blake1;
+  ledger_blake2b_ctx *outs = &blake2;
 
   if (initial_msg) {
     uint8_t path_info = 0;
     uint8_t non_address = 0;
+
+    ledger_apdu_cache_clear();
 
     if (!read_bip44_path(&buf, len, &in->depth, in->path, &path_info))
       THROW(HNS_CANNOT_READ_BIP44_PATH);
@@ -267,9 +283,6 @@ sign(
 
     if (!read_bytes(&buf, len, in->type, sizeof(in->type)))
       THROW(HNS_CANNOT_READ_SIGHASH_TYPE);
-
-    if (memcmp(in->type, &sighash_all, sizeof(in->type)))
-      THROW(HNS_INCORRECT_SIGHASH_TYPE);
 
     if (!read_bytes(&buf, len, in->prev, sizeof(in->prev)))
       THROW(HNS_CANNOT_READ_PREVOUT);
@@ -289,39 +302,115 @@ sign(
     if (!read_bytes(&buf, len, script_len, sz))
       THROW(HNS_CANNOT_READ_SCRIPT_LEN);
 
+    if (in->type[0] & SIGHASH_NOINPUT) {
+      memset(in->prev, 0x00, 32);
+      memset(&in->prev[32], 0xff, 4);
+      memset(in->seq, 0xff, sizeof(in->seq));
+    }
+
     ledger_blake2b_init(hash, 32);
     ledger_blake2b_update(hash, ctx.ver, sizeof(ctx.ver));
-    ledger_blake2b_update(hash, ctx.prevs, sizeof(ctx.prevs));
-    ledger_blake2b_update(hash, ctx.seqs, sizeof(ctx.seqs));
+
+    if (in->type[0] & SIGHASH_ANYONECANPAY) {
+      ledger_blake2b_update(hash, ZERO_HASH, sizeof(ZERO_HASH));
+    } else {
+      ledger_blake2b_update(hash, ctx.prevs, sizeof(ctx.prevs));
+    }
+
+    if (in->type[0] & SIGHASH_ANYONECANPAY
+        || (in->type[0] & 0x1f) == SIGHASH_SINGLEREVERSE
+        || (in->type[0] & 0x1f) == SIGHASH_SINGLE
+        || (in->type[0] & 0x1f) == SIGHASH_NONE) {
+      ledger_blake2b_update(hash, ZERO_HASH, sizeof(ZERO_HASH));
+    } else {
+      ledger_blake2b_update(hash, ctx.seqs, sizeof(ctx.seqs));
+    }
+
     ledger_blake2b_update(hash, in->prev, sizeof(in->prev));
     ledger_blake2b_update(hash, script_len, sz);
   }
 
-  in->script_ctr -= *len;
-
-  ledger_blake2b_update(hash, buf, *len);
-
-  if (in->script_ctr < 0)
-    THROW(HNS_INCORRECT_PARSER_STATE);
-
-  if (in->script_ctr > 0)
+  if (*len == 0)
     return 0;
 
-  uint8_t digest[32];
-  uint8_t sig_len = 64;
+  if (in->script_ctr > 0) {
+    /* More script bytes need to be sent. */
+    if (in->script_ctr >= *len) {
+      ledger_blake2b_update(hash, buf, *len);
+      in->script_ctr -= *len;
+      return 0;
+    }
 
-  ledger_blake2b_update(hash, in->val, sizeof(in->val));
-  ledger_blake2b_update(hash, in->seq, sizeof(in->seq));
-  ledger_blake2b_update(hash, ctx.outs, sizeof(ctx.outs));
+    /* Final script bytes have been sent. */
+    if (in->script_ctr > 0) {
+      ledger_blake2b_update(hash, buf, in->script_ctr);
+      in->script_ctr = 0;
+      *len -= in->script_ctr;
+    }
+
+    if (in->script_ctr < 0)
+      THROW(HNS_INCORRECT_PARSER_STATE);
+
+    ledger_blake2b_update(hash, in->val, sizeof(in->val));
+    ledger_blake2b_update(hash, in->seq, sizeof(in->seq));
+  }
+
+  if (*len == 0)
+    return 0;
+
+  if ((in->type[0] & 0x1f) == SIGHASH_SINGLE
+      || (in->type[0] & 0x1f) == SIGHASH_SINGLEREVERSE) {
+    uint8_t cache_len = ledger_apdu_cache_check();
+
+    if (cache_len) {
+      uint8_t offset = *len;
+
+      *len += ledger_apdu_cache_flush(offset);
+
+      if (cache_len + offset != *len)
+        THROW(HNS_CACHE_FLUSH_ERROR);
+    }
+
+    if (output_size == 0) {
+      if (!read_varint(&buf, len, &output_size)) {
+        if(!ledger_apdu_cache_write(buf, *len))
+          THROW(HNS_INCORRECT_PARSER_STATE);
+        return 0;
+      }
+
+      if (output_size <= 0)
+        THROW(HNS_INCORRECT_PARSER_STATE);
+
+      ledger_blake2b_init(outs, 32);
+    }
+
+    ledger_blake2b_update(outs, buf, *len);
+    output_size -= *len;
+
+    if (output_size < 0)
+      THROW(HNS_INCORRECT_PARSER_STATE);
+
+    if (output_size > 0)
+      return 0;
+  } else if ((in->type[0] & 0x1f) == SIGHASH_NONE) {
+    ledger_blake2b_update(hash, ZERO_HASH, sizeof(ZERO_HASH));
+  } else {
+    ledger_blake2b_update(hash, ctx.outs, sizeof(ctx.outs));
+  }
+
+  uint8_t digest[32];
+
   ledger_blake2b_update(hash, ctx.locktime, sizeof(ctx.locktime));
   ledger_blake2b_update(hash, in->type, sizeof(in->type));
   ledger_blake2b_final(hash, digest);
 
+  uint8_t sig_len = 64;
+
   if(!ledger_ecdsa_sign(in->path, in->depth, digest, sizeof(digest), sig, sig_len))
     THROW(HNS_FAILED_TO_SIGN_INPUT);
 
-  /* Append signature with sighash type (always SIGHASH_ALL for now) */
-  sig[sig_len++] = sighash_all;
+  /* Append signature with sighash type. */
+  sig[sig_len++] = in->type[0];
 
 #if defined(TARGET_NANOS)
   if (ui->must_confirm) {
