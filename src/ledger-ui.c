@@ -102,7 +102,7 @@ ledger_ui_approve_button(uint32_t mask, uint32_t ctr) {
     }
 
     case BUTTON_EVT_RELEASED | BUTTON_RIGHT: {
-      uint8_t len = ledger_apdu_cache_flush(0);
+      uint8_t len = ledger_apdu_cache_flush(NULL);
       ledger_apdu_exchange(IO_RETURN_AFTER_TX, len, HNS_OK);
       g_ledger.ui.must_confirm = false;
       ledger_ui_idle();

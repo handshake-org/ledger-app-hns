@@ -141,6 +141,9 @@ read_u32(uint8_t ** buf, uint8_t * len, uint32_t * u32, bool be) {
 
 static inline bool
 read_varint(uint8_t ** buf, uint8_t * len, hns_varint_t * varint) {
+  if (*len < 1)
+    return false;
+
   uint8_t prefix = (*buf)[0];
   *buf += 1;
   *len -= 1;

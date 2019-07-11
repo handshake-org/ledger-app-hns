@@ -103,33 +103,38 @@ ledger_apdu_cache_write(uint8_t *src, uint8_t src_len) {
     src = g_ledger_apdu_buffer;
 
   memmove(g_ledger_apdu_cache, src, src_len);
-
   g_ledger_apdu_cache_len = src_len;
-
   ledger_apdu_buffer_clear();
 
   return true;
 }
 
 uint8_t
-ledger_apdu_cache_flush(uint8_t offset) {
+ledger_apdu_cache_flush(uint8_t *len) {
   uint8_t *cache = g_ledger_apdu_cache;
   uint8_t *buffer = g_ledger_apdu_buffer;
   uint8_t cache_len = g_ledger_apdu_cache_len;
+  uint8_t buffer_len = 0;
 
-  if (offset + cache_len > g_ledger_apdu_buffer_size)
+  if (cache_len == 0)
     return 0;
 
-  if (offset < 0)
+  if (len == NULL)
+    len = &buffer_len;
+
+  if (*len + cache_len > g_ledger_apdu_buffer_size)
     return 0;
 
-  if (offset > 0) {
+  if (*len < 0)
+    return 0;
+
+  if (*len > 0) {
     buffer += 5; // Don't overwrite APDU header.
-    memmove(buffer + cache_len, buffer, offset);
+    memmove(buffer + cache_len, buffer, *len);
   }
 
   memmove(buffer, cache, cache_len);
-
+  *len += cache_len;
   ledger_apdu_cache_clear();
 
   return cache_len;

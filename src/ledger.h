@@ -117,21 +117,22 @@ bool
 ledger_apdu_cache_write(uint8_t *src, uint8_t src_len);
 
 /**
- * Copies all data in the cache to the APDU exchange buffer. The offset
+ * Copies all data in the cache to the APDU exchange buffer. The len
  * parameter indicates the amount of bytes already in the APDU buffer
  * that the caller wishes to save. These bytes will be appended to the
- * end of the cache before updating the exchange buffer. If the offset
+ * end of the cache before updating the exchange buffer. If the len
  * parameter is used, the APDU header bytes will be saved, otherwise
- * the cache is copied to the beginning of the exchange buffer.
+ * the cache is copied to the beginning of the exchange buffer. If the
+ * cache is empty, the exchange buffer will be left unchanged.
  *
  * In:
- * @param offset is the amount of bytes to save from the exchange buffer.
+ * @param len is the amount of bytes in the exchange buffer.
  *
  * Out:
  * @return the amount of data added to the exchange buffer from the cache.
  */
 uint8_t
-ledger_apdu_cache_flush(uint8_t offset);
+ledger_apdu_cache_flush(uint8_t *len);
 
 /**
  * Checks the apdu cache buffer for stored data.
