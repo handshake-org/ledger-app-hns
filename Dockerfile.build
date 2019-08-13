@@ -20,6 +20,9 @@ RUN ln -s clang+llvm-4.0.0-x86_64-linux-gnu-ubuntu-16.04 clang-arm-fropi
 
 RUN easy_install3 pip
 RUN pip3 install virtualenv
+RUN virtualenv ledger
+RUN /bin/sh ledger/bin/activate
+RUN pip3 install ledgerblue
 
 RUN mkdir -p /ledger-app-hns
 RUN git clone https://github.com/LedgerHQ/nanos-secure-sdk /nanos-secure-sdk
