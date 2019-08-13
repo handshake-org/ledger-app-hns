@@ -69,7 +69,7 @@ $ cd ledger-tools
 Before installing the SDK, you will need to know what firmware version is
 running on your Ledger Nano S. If you do not know how to check your firmware
 version, follow the instructions [here][firmware]. This application supports
-the following versions: `1.5.5` and `1.4.2`.
+the following versions: `1.5.5`.
 
 #### Install SDK version 1.5.5
 - Clone the git repo and check out branch `nanos-1552`:
@@ -77,20 +77,6 @@ the following versions: `1.5.5` and `1.4.2`.
 $ git clone https://github.com/ledgerhq/nanos-secure-sdk.git
 $ cd nanos-secure-sdk
 $ git checkout nanos-1552
-```
-
-- Set the `BOLOS_SDK` environment variable to the absolute path
-  of the SDK repo:
-```bash
-$ export BOLOS_SDK=`pwd`
-```
-
-#### Install SDK version 1.4.2
-- Clone the git repo and check out branch `nanos-1422`:
-```bash
-$ git clone https://github.com/ledgerhq/nanos-secure-sdk.git
-$ cd nanos-secure-sdk
-$ git checkout nanos-1422
 ```
 
 - Set the `BOLOS_SDK` environment variable to the absolute path
@@ -126,14 +112,6 @@ loading it onto your device. The last two steps are triggered by one
 $ git clone https://github.com/boymanjor/ledger-app-hns.git
 $ cd ledger-app-hns
 $ git checkout nanos-1552
-```
-
-#### For firmware version 1.4.2
-- Clone the git repo and check out branch `nanos-1422`:
-```bash
-$ git clone https://github.com/boymanjor/ledger-app-hns.git
-$ cd ledger-app-hns
-$ git checkout nanos-1422
 ```
 
 #### Compile and Load `ledger-app-hns`
