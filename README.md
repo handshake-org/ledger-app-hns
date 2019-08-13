@@ -23,6 +23,9 @@ Nano S app development.
 To load the app on your Ledger Nanos S without using Docker:
 - Follow the setup instructions [here][setup].
 - Run `make load` in the root of this git repo.
+- Follow the terminal and on-device instructions (this process takes a while).
+
+Once installation is complete, install the [client library][hsd-ledger].
 
 >Note: macOS and Windows are not supported. If you are _not_ running Linux,
 please follow the Docker instructions below.
@@ -33,14 +36,54 @@ please follow the Docker instructions below.
 
 ## Docker Install
 
-To load the app on your Ledger Nanos S using Docker, follow the
-instructions below.
+If you are running [Linux](#linux-host), the only dependency is Docker. If you
+are running [macOS](#macos-or-windows-host) or [Windows](#macos-or-windows-host)
+you will also need to setup a Python virtualenv and install developer tools
+provided by Ledger. Detailed instructions for each host environment are below.
+
+Once installation is complete, install the [client library][hsd-ledger].
 
 >Note: all example commands begin with the $ symbol. This symbol signifies
 a shell command prompt. The command prompt in your shell may be different.
 Do not copy the $ symbol when using the commands in your shell.
 
-### Install Dependencies
+<br/>
+
+### Linux Host
+#### Install Dependencies
+First, be sure to have [Docker](https://www.docker.com/get-started) installed
+and running on your machine.
+
+#### Install `ledger-app-hns`
+
+Clone the git repo:
+```bash
+$ git clone https://github.com/boymanjor/ledger-app-hns.git
+$ cd ledger-app-hns
+```
+
+- Connect the Ledger Nano S to your machine via USB.
+- Unlock the device.
+- Navigate to the device's main menu.
+
+Run:
+```bash
+$ docker build --build-arg CACHE_BUST='$(shell date)' -f Dockerfile.build -t ledger-app-hns-build .
+$ docker run --rm --privileged ledger-app-hns-build make load
+$ docker rm ledger-app-hns-build
+```
+
+>Note: the above `docker run` command uses the `--privileged` flag, which gives
+>the docker container full access to your host machine. If you know the location
+>of your connected Ledger Nano S you can >replace the `--privileged` tag
+>with `--device=/path/to/usb/device`.
+
+- Follow the terminal and on-device instructions (this process takes a while).
+
+<br/>
+
+### macOS or Windows Host
+#### Install Dependencies
 First, be sure to have the following development dependencies installed on
 your machine:
 - [Docker](https://www.docker.com/get-started)
@@ -65,62 +108,62 @@ $ mkdir ledger-tools
 $ cd ledger-tools
 ```
 
-### Install Nano S Secure SDK
+#### Install Nano S Secure SDK
 Before installing the SDK, you will need to know what firmware version is
 running on your Ledger Nano S. If you do not know how to check your firmware
 version, follow the instructions [here][firmware]. This application supports
-the following versions: `1.5.5`.
+`v1.5.5`.
 
-#### Install SDK version 1.5.5
-- Clone the git repo and check out branch `nanos-1552`:
+Clone the git repo:
 ```bash
 $ git clone https://github.com/ledgerhq/nanos-secure-sdk.git
-$ cd nanos-secure-sdk
-$ git checkout nanos-1552
 ```
 
-- Set the `BOLOS_SDK` environment variable to the absolute path
+Set the `BOLOS_SDK` environment variable to the absolute path
   of the SDK repo:
 ```bash
+$ cd nanos-secure-sdk
 $ export BOLOS_SDK=`pwd`
+$ cd ..
 ```
 
-### Install Python Loader for Ledger Nano S
+#### Install Python Loader for Ledger Nano S
 Now, you will need to install the Python [loader tool][loader]. This process
 will involve: navigating back to the root of the `ledger-tools` directory,
-creating and activating a Python virtual environment, and installing the loader
-tools (named `ledgerblue`).
+creating and activating a Python virtual environment, and installing the
+`ledgerblue` loader tools.
 
-To install, run:
+Run:
 ```bash
-$ cd ..
 $ virtualenv ledger
 $ source ledger/bin/activate
 $ pip install ledgerblue
 ```
 
-### Install ledger-app-hns
+#### Install `ledger-app-hns`
 We are ready to install the application! This process will involve: cloning
 the git repo into the `ledger-tools` directory, checking out the branch that
 corresponds to your device's firmware version, compiling the application, and
 loading it onto your device. The last two steps are triggered by one
 `make` command.
 
-#### For firmware version 1.5.5
-- Clone the git repo and check out branch `nanos-1552`:
+Clone the git repo:
 ```bash
 $ git clone https://github.com/boymanjor/ledger-app-hns.git
 $ cd ledger-app-hns
-$ git checkout nanos-1552
 ```
 
-#### Compile and Load `ledger-app-hns`
+- Start Docker.
 - Connect the Ledger Nano S to your machine via USB.
 - Unlock the device.
 - Navigate to the device's main menu.
-- Run `make docker-load`.
+
+Run:
+```bash
+$ make docker-load
+```
+
 - Follow the terminal and on-device instructions (this process takes a while).
-- Once `ledger-app-hns` is installed, install the [client library][hsd-ledger].
 
 [sdk]: https://github.com/ledgerhq/nanos-secure-sdk
 [loader]: https://github.com/ledgerhq/blue-loader-python
