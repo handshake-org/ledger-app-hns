@@ -68,9 +68,8 @@ $ cd ledger-app-hns
 
 Run:
 ```bash
-$ docker build --build-arg CACHE_BUST='$(shell date)' -f Dockerfile.build -t ledger-app-hns-build .
+$ docker build --build-arg CACHE_BUST="$(date)" -f Dockerfile.build -t ledger-app-hns-build .
 $ docker run --rm --privileged ledger-app-hns-build make load
-$ docker rm ledger-app-hns-build
 ```
 
 >Note: the above `docker run` command uses the `--privileged` flag, which gives
