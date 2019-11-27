@@ -276,7 +276,7 @@ displayed for derivations past the address index level.
 
 | CLA   | INS   | P1   | P2    | LC  |
 | ----- | ----- | ---- | ----- | --- |
-| 0xe0  | 0x42  | *var | **var | var |
+| 0xe0  | 0x42  | \*var | \*\*var | var |
 
 \* P1:
 
@@ -289,7 +289,7 @@ displayed for derivations past the address index level.
 - 0x04 = Regtest
 - 0x06 = Simnet
 
-\* P2:
+\*\* P2:
 - 0x00 = Public key only
 - 0x01 = Public key + chain code + parent fingerprint
 - 0x02 = Public key + address
@@ -350,7 +350,7 @@ will be rejected.
 
 | CLA   | INS   | P1   | P2    | LC  |
 | ----- | ----- | ---- | ----- | --- |
-| 0xe0  | 0x44  | *var | 0x00  | var |
+| 0xe0  | 0x44  | \*var | 0x00  | var |
 
 \* P1:
 - 0x01 = Initial message
@@ -362,32 +362,47 @@ will be rejected.
 255 bytes. This is because the APDU command data length is represented
 as a uint8_t.
 
-| Field         | Len |
-| ------------- | --- |
-| version       | 4   |
-| locktime      | var |
-| # of inputs   | 1   |
-| # of outputs  | 1   |
-| sz of outputs | var |
-| *inputs       | var |
-| **outputs     | var |
+| Field          | Len |
+| -------------- | --- |
+| version        | 4   |
+| locktime       | var |
+| # of inputs    | 1   |
+| # of outputs   | 1   |
+| \*change flag  | 1   |
+| change index?  | 1   |
+| change version?  | 1   |
+| \*\*change path? | var |
+| \*\*\*inputs     | var |
+| \*\*\*\*outputs  | var |
 
-\* Input serialization for parse mode
+\* change flag:
+- 0x00 = No address.
+- 0x01 = P2PKH change address. Address info provided.
+- 0x02 = P2SH change address. No info provided. On-device confirmation required.
+
+\*\* A BIP32 derivation path of the transaction's change address. Only one
+change address is allowed per transaction. If no change address path is
+provided, only one output is allowed in the transaction. See serialization
+format [above](#encoded-path). Non-standard BIP44 address paths will be
+rejected. If serialized redeem script, an on-device warning will be displayed.
+
+\*\*\* Input serialization for parse mode
 
 | Field         | Len |
 | ------------- | --- |
 | prevout       | 36  |
 | sequence      | 4   |
+| value         | 8   |
 
-** Output serialization
+\*\*\*\* Output serialization
 
 | Field         | Len |
 | ------------- | --- |
 | value         | 8   |
-| ***address    | var |
-| ****covenant  | var |
+| \*\*\*\*\*address    | var |
+| \*\*\*\*\*\*covenant | var |
 
-*** Address serialization
+\*\*\*\*\* Address serialization
 
 | Field       | Len |
 | ----------- | --- |
@@ -395,13 +410,14 @@ as a uint8_t.
 | hash length | 1   |
 | hash        | var |
 
-**** Covenant serialization
+\*\*\*\*\*\* Covenant serialization
 
 | Field       | Len |
 | ----------- | --- |
 | type        | 1   |
 | # of items  | var |
-| items       | var |
+| items?      | var |
+| name?       | var |
 
 ##### Output data
 
@@ -412,7 +428,7 @@ None
 
 | CLA   | INS  | P1   | P2   | LC  |
 | ----- | ---- | ---- | ---- | --- |
-| 0xe0  | 0x44 | *var | 0x01 | var |
+| 0xe0  | 0x44 | \*var | 0x01 | var |
 
 \* P1:
 - 0x01 = Initial signature request (on-device txid confirmation required)
@@ -420,16 +436,16 @@ None
 
 ##### Input data
 
-| Field               | Len |
-| ------------------- | --- |
-| *encoded BIP32 path | var |
-| sighash type        | 4   |
-| **input             | var |
+| Field                | Len |
+| -------------------- | --- |
+| \*signing key path   | var |
+| sighash type         | 4   |
+| \*\*input            | var |
 
 \* See serialization format [above](#encoded-path). Non-standard BIP44 address
 paths will be rejected.
 
-** Input serialization for sign mode
+\*\* Input serialization for sign mode
 
 | Field         | Len |
 | ------------- | --- |

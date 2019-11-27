@@ -23,11 +23,11 @@
 #define HNS_HARDENED 0x80000000u
 #define HNS_BIP44_ACCT_DEPTH 3
 #define HNS_BIP44_ADDR_DEPTH 5
-#define HNS_BIP44_PURPOSE (HNS_HARDENED | 0x2cu)   // 44
-#define HNS_BIP44_MAINNET (HNS_HARDENED | 0x14e9u) // 5353
-#define HNS_BIP44_TESTNET (HNS_HARDENED | 0x14eau) // 5354
-#define HNS_BIP44_REGTEST (HNS_HARDENED | 0x14ebu) // 5355
-#define HNS_BIP44_SIMNET  (HNS_HARDENED | 0x14ecu) // 5356
+#define HNS_BIP44_PURPOSE (HNS_HARDENED | 0x2cu)   // 44'
+#define HNS_BIP44_MAINNET (HNS_HARDENED | 0x14e9u) // 5353'
+#define HNS_BIP44_TESTNET (HNS_HARDENED | 0x14eau) // 5354'
+#define HNS_BIP44_REGTEST (HNS_HARDENED | 0x14ebu) // 5355'
+#define HNS_BIP44_SIMNET  (HNS_HARDENED | 0x14ecu) // 5356'
 #define HNS_MAX_DEPTH LEDGER_MAX_DEPTH
 
 /**
@@ -52,11 +52,11 @@
 typedef uint32_t hns_varint_t;
 
 /**
- * Besides `bin_to_hex`, the following functions are buffer io related.
+ * Helpers
  */
 
 static inline void
-bin_to_hex(uint8_t * hex, uint8_t * bin, uint8_t len) {
+bin_to_hex(char *hex, uint8_t *bin, uint8_t len) {
   static uint8_t const lookup[] = "0123456789abcdef";
   uint8_t i;
 
@@ -67,6 +67,157 @@ bin_to_hex(uint8_t * hex, uint8_t * bin, uint8_t len) {
 
   hex[2*len] = '\0';
 }
+
+/**
+ * See: https://github.com/LedgerHQ/ledger-app-btc/blob/08c7f5dfc324d39afe3df8b7fb80f5c7c0990f79/src/btchip_bcd.c#L23
+ *
+ * Note: ledger-app-btc stores output values in big-endian format, while
+ * ledger-app-hns uses little-endian. This function converts the amount
+ * to big-endian before processing.
+ */
+
+#define LOOP_1_SIZE 15
+#define LOOP_2_SIZE 6
+#define TMP_SIZE (LOOP_1_SIZE + LOOP_2_SIZE)
+
+static inline uint8_t
+hex_to_dec(char *dec, uint8_t *hex) {
+  uint8_t i,j;
+  uint8_t amt[8];
+  uint8_t tmp[TMP_SIZE];
+  uint8_t ntmp = TMP_SIZE;
+  uint8_t smin = ntmp - 2;
+
+  for (i = 0; i < 8; i++)
+    amt[i] = hex[8 - 1 - i];
+
+  for (i = 0; i < TMP_SIZE; i++)
+    tmp[i] = 0;
+
+  for (i = 0; i < 8; i++) {
+    for (j = 0; j < 8; j++) {
+      uint8_t k;
+      uint16_t shift = (((amt[i] & 0xff) & ((1 << (7 - j)))) != 0) ? 1 : 0;
+
+      for (k = smin; k < ntmp; k++)
+        tmp[k] += ((tmp[k] >= 5) ? 3 : 0);
+
+      if (tmp[smin] >= 8)
+        smin -= 1;
+
+      for (k = smin; k < ntmp - 1; k++)
+        tmp[k] = ((tmp[k] << 1) & 0x0f) | ((tmp[k + 1] >= 8) ? 1 : 0);
+
+      tmp[ntmp - 1] = ((tmp[ntmp - 1] << 1) & 0x0f) | (shift == 1 ? 1 : 0);
+    }
+  }
+
+  uint8_t non_zero = 0;
+  uint8_t offset = 0;
+  uint8_t target_offset = 0;
+
+  for (i = 0; i < LOOP_1_SIZE; i++) {
+    if (!non_zero && (tmp[offset] == 0)) {
+      offset++;
+    } else {
+      non_zero = 1;
+      dec[target_offset++] = tmp[offset++] + '0';
+    }
+  }
+
+  if (target_offset == 0)
+    dec[target_offset++] = '0';
+
+  uint8_t work_offset = offset;
+  uint8_t period = 0;
+
+  for (i = 0; i < LOOP_2_SIZE; i++) {
+    uint8_t all_zero = 1;
+
+    for (j = i; j < LOOP_2_SIZE; j++) {
+      if (tmp[work_offset + j] != 0) {
+        all_zero = 0;
+        break;
+      }
+    }
+
+    if (all_zero)
+      break;
+
+    if (!period) {
+      dec[target_offset++] = '.';
+      period = 1;
+    }
+
+    dec[target_offset++] = tmp[offset++] + '0';
+  }
+
+  dec[target_offset] = '\0';
+
+  return target_offset;
+}
+
+/**
+ * See: https://github.com/LedgerHQ/ledger-app-btc/blob/08c7f5dfc324d39afe3df8b7fb80f5c7c0990f79/src/btchip_transaction.c#L38
+ *
+ * Note: the above function accepts big-endian integers.
+ * add_u64 accepts little-endian integers.
+ */
+
+static inline uint8_t
+add_u64(uint8_t *target, uint8_t *a, uint8_t *b) {
+  uint8_t carry = 0;
+  uint8_t i;
+
+  for (i = 0; i < 8; i++) {
+    uint8_t val = a[i] + b[i] + (carry ? 1 : 0);
+    carry = (val > 255);
+    target[i] = (val & 255);
+  }
+
+  return carry;
+}
+
+/**
+ * See: https://github.com/LedgerHQ/ledger-app-btc/blob/08c7f5dfc324d39afe3df8b7fb80f5c7c0990f79/src/btchip_transaction.c#L51
+ *
+ * Note: the above function accepts big-endian integers.
+ * sub_u64 accepts little-endian integers.
+ */
+
+static inline uint8_t
+sub_u64(uint8_t *target, uint8_t *a, uint8_t *b) {
+  uint8_t borrow = 0;
+  uint8_t i;
+
+  for (i = 0; i < 8; i++) {
+    uint8_t ta = a[i];
+    uint8_t tb = b[i];
+
+    if (borrow) {
+      if (ta <= tb) {
+        ta += (255 + 1) - 1;
+      } else {
+        borrow = 0;
+        ta--;
+      }
+    }
+
+    if (ta < tb) {
+      borrow = 1;
+      ta += 255 + 1;
+    }
+
+    target[i] = (uint8_t)(ta - tb);
+  }
+
+  return borrow;
+}
+
+
+/**
+ * The following functions are buffer io related.
+ */
 
 static inline uint8_t
 size_varint(hns_varint_t val) {
@@ -88,7 +239,7 @@ size_varsize(size_t val) {
 }
 
 static inline bool
-read_u8(uint8_t ** buf, uint8_t * len, uint8_t * u8) {
+read_u8(uint8_t **buf, uint8_t *len, uint8_t *u8) {
   if (*len < 1)
     return false;
 
@@ -100,7 +251,7 @@ read_u8(uint8_t ** buf, uint8_t * len, uint8_t * u8) {
 }
 
 static inline bool
-read_u16(uint8_t ** buf, uint8_t * len, uint16_t * u16, bool be) {
+read_u16(uint8_t **buf, uint8_t *len, uint16_t *u16, bool be) {
   if (*len < 2)
     return false;
 
@@ -119,7 +270,7 @@ read_u16(uint8_t ** buf, uint8_t * len, uint16_t * u16, bool be) {
 }
 
 static inline bool
-read_u32(uint8_t ** buf, uint8_t * len, uint32_t * u32, bool be) {
+read_u32(uint8_t **buf, uint8_t *len, uint32_t *u32, bool be) {
   if (*len < 4)
     return false;
 
@@ -140,7 +291,7 @@ read_u32(uint8_t ** buf, uint8_t * len, uint32_t * u32, bool be) {
 }
 
 static inline bool
-read_varint(uint8_t ** buf, uint8_t * len, hns_varint_t * varint) {
+read_varint(uint8_t **buf, uint8_t *len, hns_varint_t *varint) {
   if (*len < 1)
     return false;
 
@@ -199,7 +350,7 @@ read_varint(uint8_t ** buf, uint8_t * len, hns_varint_t * varint) {
 }
 
 static inline bool
-peek_varint(uint8_t ** buf, uint8_t * len, hns_varint_t * varint) {
+peek_varint(uint8_t **buf, uint8_t *len, hns_varint_t *varint) {
   if (!read_varint(buf, len, varint))
     return false;
 
@@ -212,20 +363,11 @@ peek_varint(uint8_t ** buf, uint8_t * len, hns_varint_t * varint) {
 }
 
 static inline bool
-read_varsize(uint8_t ** buf, uint8_t * len, size_t * val) {
+read_varsize(uint8_t **buf, uint8_t *len, size_t *val) {
   hns_varint_t v;
 
   if (!read_varint(buf, len, &v))
     return false;
-
-  if (v < 0) {
-    uint8_t sz = size_varint(v);
-
-    buf -= sz;
-    len += sz;
-
-    return false;
-  }
 
   *val = v;
 
@@ -233,7 +375,7 @@ read_varsize(uint8_t ** buf, uint8_t * len, size_t * val) {
 }
 
 static inline bool
-read_bytes(uint8_t ** buf, uint8_t * len, uint8_t * out, size_t sz) {
+read_bytes(uint8_t **buf, uint8_t *len, uint8_t *out, size_t sz) {
   if (*len < sz)
     return false;
 
@@ -247,11 +389,11 @@ read_bytes(uint8_t ** buf, uint8_t * len, uint8_t * out, size_t sz) {
 
 static inline bool
 read_varbytes(
-  uint8_t ** buf,
-  uint8_t * len,
-  uint8_t * out,
+  uint8_t **buf,
+  uint8_t *len,
+  uint8_t *out,
   size_t out_sz,
-  size_t * out_len
+  size_t *out_len
 ) {
   size_t sz;
   size_t offset;
@@ -280,11 +422,11 @@ read_varbytes(
 
 static inline bool
 read_bip44_path(
-  uint8_t ** buf,
-  uint8_t * len,
-  uint8_t * depth,
-  uint32_t * path,
-  uint8_t * info
+  uint8_t **buf,
+  uint8_t *len,
+  uint8_t *depth,
+  uint32_t *path,
+  uint8_t *info
 ) {
   if (*len < 1)
     return false;
@@ -348,7 +490,7 @@ read_bip44_path(
 }
 
 static inline size_t
-write_u8(uint8_t ** buf, uint8_t u8) {
+write_u8(uint8_t **buf, uint8_t u8) {
   if (buf == NULL || *buf == NULL)
     return 0;
 
@@ -359,7 +501,7 @@ write_u8(uint8_t ** buf, uint8_t u8) {
 }
 
 static inline size_t
-write_u16(uint8_t ** buf, uint16_t u16, bool be) {
+write_u16(uint8_t **buf, uint16_t u16, bool be) {
   if (buf == NULL || *buf == NULL)
     return 0;
 
@@ -376,7 +518,7 @@ write_u16(uint8_t ** buf, uint16_t u16, bool be) {
 }
 
 static inline size_t
-write_u32(uint8_t ** buf, uint32_t u32, bool be) {
+write_u32(uint8_t **buf, uint32_t u32, bool be) {
   if (buf == NULL || *buf == NULL)
     return 0;
 
@@ -395,7 +537,7 @@ write_u32(uint8_t ** buf, uint32_t u32, bool be) {
 }
 
 static inline size_t
-write_bytes(uint8_t ** buf, const uint8_t * bytes, size_t sz) {
+write_bytes(uint8_t **buf, const uint8_t *bytes, size_t sz) {
   if (buf == NULL || *buf == NULL)
     return 0;
 
@@ -406,7 +548,7 @@ write_bytes(uint8_t ** buf, const uint8_t * bytes, size_t sz) {
 }
 
 static inline size_t
-write_varint(uint8_t ** buf, hns_varint_t val) {
+write_varint(uint8_t **buf, hns_varint_t val) {
   if (buf == NULL || *buf == NULL)
     return 0;
 
@@ -431,12 +573,12 @@ write_varint(uint8_t ** buf, hns_varint_t val) {
 }
 
 static inline size_t
-write_varsize(uint8_t ** buf, size_t val) {
+write_varsize(uint8_t **buf, size_t val) {
   return write_varint(buf, (uint64_t)val);
 }
 
 static inline size_t
-write_varbytes(uint8_t ** buf, const uint8_t * bytes, size_t sz) {
+write_varbytes(uint8_t **buf, const uint8_t *bytes, size_t sz) {
   if (buf == NULL || *buf == NULL)
     return 0;
 

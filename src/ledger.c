@@ -19,7 +19,7 @@ static uint16_t g_ledger_apdu_buffer_size;
 /**
  * Cache buffer used to save data between APDU calls.
  */
-static uint8_t g_ledger_apdu_cache[114];
+static uint8_t g_ledger_apdu_cache[LEDGER_APDU_CACHE_SIZE];
 
 /**
  * Total size of the cache buffer.
@@ -129,7 +129,7 @@ ledger_apdu_cache_flush(uint8_t *len) {
     return 0;
 
   if (*len > 0) {
-    buffer += 5; // Don't overwrite APDU header.
+    buffer += 5; /* Don't overwrite APDU header. */
     memmove(buffer + cache_len, buffer, *len);
   }
 
@@ -211,17 +211,17 @@ ledger_ecdsa_derive_node(
 
 void
 ledger_ecdsa_derive_xpub(ledger_ecdsa_xpub_t *xpub) {
-  // Derive child node and store pubkey & chain code.
+  /* Derive child node and store pubkey & chain code. */
   ledger_ecdsa_bip32_node_t n;
   ledger_ecdsa_derive_node(xpub->path, xpub->depth, &n);
   memmove(xpub->key, n.pub.W, sizeof(xpub->key));
   memmove(xpub->code, n.chaincode, sizeof(xpub->code));
   memset(&n.prv, 0, sizeof(n.prv));
 
-  // Set parent fingerprint to 0x00000000.
+  /* Set parent fingerprint to 0x00000000. */
   memset(xpub->fp, 0, sizeof(xpub->fp));
 
-  // If parent exists, store fingerprint.
+  /* If parent exists, store fingerprint. */
   if (xpub->depth > 1) {
     uint8_t buffer[32];
     union {
@@ -266,14 +266,14 @@ parse_der(uint8_t *der, uint8_t der_len, uint8_t *sig, uint8_t sig_sz) {
   int overflow = 0;
   int len = 0;
 
-  // Prepare signature for padding.
+  /* Prepare signature for padding. */
   memset(sig, 0, sig_sz);
 
-  // Check initial byte for correct format.
+  /* Check initial byte for correct format. */
   if (der == der_end || *(der++) != 0x30)
     return false;
 
-  // Check length of remaining data.
+  /* Check length of remaining data. */
   len = *(der++);
 
   if ((len & 0x80) != 0x00)
@@ -285,11 +285,11 @@ parse_der(uint8_t *der, uint8_t der_len, uint8_t *sig, uint8_t sig_sz) {
   if (der + len != der_end)
     return false;
 
-  // Check tag byte for R.
+  /* Check tag byte for R. */
   if (der == der_end || *(der++) != 0x02)
     return false;
 
-  // Check length of R.
+  /* Check length of R. */
   len = *(der++);
 
   if ((len & 0x80) != 0)
@@ -298,22 +298,21 @@ parse_der(uint8_t *der, uint8_t der_len, uint8_t *sig, uint8_t sig_sz) {
   if (len <= 0 || der + len > der_end)
     return false;
 
-  // Check padding of R.
+  /* Check padding of R. */
 
-  // Excessive 0x00 padding.
+  /* Excessive 0x00 padding. */
   if (der[0] == 0x00 && len > 1 && (der[1] & 0x80) == 0x00)
-    THROW(0x51);
-    /* return false; */
+    return false;
 
-  // Excessive 0xff padding.
+  /* Excessive 0xff padding. */
   if (der[0] == 0xff && len > 1 && (der[1] & 0x80) == 0x80)
     return false;
 
-  // Check sign of the length.
+  /* Check sign of the length. */
   if ((der[0] & 0x80) == 0x80)
     overflow = 1;
 
-  // Skip leading zero bytes.
+  /* Skip leading zero bytes. */
   while (len > 0 && der[0] == 0) {
     len--;
     der++;
@@ -334,11 +333,11 @@ parse_der(uint8_t *der, uint8_t der_len, uint8_t *sig, uint8_t sig_sz) {
   sig += 32;
   overflow = 0;
 
-  // Check tag byte for S.
+  /* Check tag byte for S. */
   if (der == der_end || *(der++) != 0x02)
     return false;
 
-  // Check length of S.
+  /* Check length of S. */
   len = *(der++);
 
   if ((len & 0x80) != 0)
@@ -347,21 +346,21 @@ parse_der(uint8_t *der, uint8_t der_len, uint8_t *sig, uint8_t sig_sz) {
   if (len <= 0 || der + len > der_end)
     return false;
 
-  // Check padding of S.
+  /* Check padding of S. */
 
-  // Excessive 0x00 padding.
+  /* Excessive 0x00 padding. */
   if (der[0] == 0x00 && len > 1 && (der[1] & 0x80) == 0x00)
     return false;
 
-  // Excessive 0xff padding.
+  /* Excessive 0xff padding. */
   if (der[0] == 0xff && len > 1 && (der[1] & 0x80) == 0x80)
     return false;
 
-  // Check sign of the length.
+  /* Check sign of the length. */
   if ((der[0] & 0x80) == 0x80)
     overflow = 1;
 
-  // Skip leading zero bytes.
+  /* Skip leading zero bytes. */
   while (len > 0 && der[0] == 0) {
     len--;
     der++;
@@ -419,6 +418,24 @@ ledger_sha256(const void *data, size_t data_sz, void *digest) {
   cx_sha256_t sha256;
   cx_sha256_init(&sha256);
   cx_hash(&sha256.header, CX_LAST, data, data_sz, digest);
+
+  return true;
+}
+
+bool
+ledger_sha3(const void *data, size_t data_sz, void *digest) {
+  if (digest == NULL)
+    return false;
+
+  if (data == NULL)
+    return false;
+
+  if (data_sz < 1)
+    return false;
+
+  cx_sha3_t sha3;
+  cx_sha3_init(&sha3, 256);
+  cx_hash(&sha3.header, CX_LAST, data, data_sz, digest);
 
   return true;
 }

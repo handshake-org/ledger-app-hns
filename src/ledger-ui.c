@@ -6,9 +6,19 @@
 #include "apdu.h"
 #include "glyphs.h"
 #include "ledger.h"
+#include "segwit-addr.h"
 #include "utils.h"
 
 #if defined(TARGET_NANOS)
+
+/**
+ * These constants are used to indicate the network
+ * serialization format for on-screen confirmations.
+ */
+#define MAINNET 0x00
+#define TESTNET 0x02
+#define REGTEST 0x04
+#define SIMNET  0x06
 
 /**
  * For more details on UI elements see:
@@ -33,12 +43,18 @@
     BAGL_FONT_OPEN_SANS_REGULAR_11px|BAGL_FONT_ALIGNMENT_CENTER,0}, \
    (char *)text,0,0,0,NULL,NULL,NULL}
 
-static ux_menu_entry_t const main_menu[];
+static ux_menu_entry_t const main_menu[4];
+
+static uint32_t
+ledger_ui_display_button(uint32_t mask, uint32_t ctr);
+
+static bagl_element_t const *
+ledger_ui_display_prepro(const bagl_element_t *e);
 
 /**
  * About menu screen for Ledger Nano S.
  */
-static ux_menu_entry_t const about_menu[] = {
+static ux_menu_entry_t const about_menu[4] = {
   {NULL, NULL, 0, NULL, "Version", APPVERSION, 0, 0},
   {main_menu, NULL, 1, &C_nanos_icon_back, "Back", NULL, 61, 40},
   UX_MENU_END
@@ -102,11 +118,263 @@ ledger_ui_approve_button(uint32_t mask, uint32_t ctr) {
     }
 
     case BUTTON_EVT_RELEASED | BUTTON_RIGHT: {
-      uint8_t len = ledger_apdu_cache_flush(NULL);
-      ledger_apdu_exchange(IO_RETURN_AFTER_TX, len, HNS_OK);
-      g_ledger.ui.must_confirm = false;
-      ledger_ui_idle();
-      break;
+      switch(g_ledger.ui.state) {
+        case LEDGER_UI_KEY:
+        case LEDGER_UI_FEES:
+        case LEDGER_UI_SIGHASH_TYPE: {
+          uint8_t len = ledger_apdu_cache_flush(NULL);
+          ledger_apdu_exchange(IO_RETURN_AFTER_TX, len, HNS_OK);
+          g_ledger.ui.must_confirm = false;
+          ledger_ui_idle();
+          break;
+        }
+
+        case LEDGER_UI_OUTPUT: {
+          hns_tx_t *ctx = (hns_tx_t *)g_ledger.ui.ctx;
+          hns_output_t *out = &ctx->curr_output;
+          char *hdr = "Covenant Type";
+          char *msg = g_ledger.ui.message;
+          uint8_t *flags = g_ledger.ui.flags;
+
+          switch(out->cov.type) {
+            case HNS_NONE:
+              strcpy(msg, "NONE");
+              break;
+
+            case HNS_OPEN:
+              strcpy(msg, "OPEN");
+              break;
+
+           case HNS_BID:
+              strcpy(msg, "BID");
+              break;
+
+            case HNS_REVEAL:
+              strcpy(msg, "REVEAL");
+              break;
+
+            case HNS_REDEEM:
+              strcpy(msg, "REDEEM");
+              break;
+
+            case HNS_REGISTER:
+              strcpy(msg, "REGISTER");
+              break;
+
+            case HNS_UPDATE:
+              strcpy(msg, "UPDATE");
+              break;
+
+            case HNS_RENEW:
+              strcpy(msg, "RENEW");
+              break;
+
+            case HNS_TRANSFER:
+              strcpy(msg, "TRANSFER");
+              break;
+
+            case HNS_FINALIZE:
+              strcpy(msg, "FINALIZE");
+              break;
+
+            case HNS_REVOKE:
+              strcpy(msg, "REVOKE");
+              break;
+
+            default:
+              THROW(HNS_UNSUPPORTED_COVENANT_TYPE);
+          }
+
+          ledger_ui_update(LEDGER_UI_COVENANT_TYPE, hdr, msg, flags);
+          break;
+        }
+
+        case LEDGER_UI_COVENANT_TYPE: {
+          hns_tx_t *ctx = (hns_tx_t *)g_ledger.ui.ctx;
+          hns_output_t *out = &ctx->curr_output;
+
+          if (out->cov.type == HNS_NONE) {
+            char *hdr = "Value";
+            char *msg = g_ledger.ui.message;
+            uint8_t *flags = g_ledger.ui.flags;
+
+            hex_to_dec(msg, out->val);
+
+            if (!ledger_ui_update(LEDGER_UI_VALUE, hdr, msg, flags))
+              THROW(HNS_CANNOT_UPDATE_UI);
+
+            break;
+          }
+
+          char *hdr = "Name";
+          char *msg = g_ledger.ui.message;
+          uint8_t *flags = g_ledger.ui.flags;
+
+          switch(out->cov.type) {
+            case HNS_OPEN:
+              strcpy(msg, out->cov.items.open.name);
+              break;
+
+            case HNS_BID:
+              strcpy(msg, out->cov.items.bid.name);
+              break;
+
+            case HNS_REVEAL:
+              strcpy(msg, out->cov.items.reveal.name);
+              break;
+
+            case HNS_REDEEM:
+              strcpy(msg, out->cov.items.redeem.name);
+              break;
+
+            case HNS_REGISTER:
+              strcpy(msg, out->cov.items.register_cov.name);
+              break;
+
+            case HNS_UPDATE:
+              strcpy(msg, out->cov.items.update.name);
+              break;
+
+            case HNS_RENEW:
+              strcpy(msg, out->cov.items.renew.name);
+              break;
+
+            case HNS_TRANSFER:
+              strcpy(msg, out->cov.items.transfer.name);
+              break;
+
+            case HNS_FINALIZE:
+              strcpy(msg, out->cov.items.finalize.name);
+              break;
+
+            case HNS_REVOKE:
+              strcpy(msg, out->cov.items.revoke.name);
+              break;
+
+            default:
+              THROW(HNS_UNSUPPORTED_COVENANT_TYPE);
+          }
+
+          ledger_ui_update(LEDGER_UI_NAME, hdr, msg, flags);
+          break;
+        }
+
+        case LEDGER_UI_NAME: {
+          hns_tx_t *ctx = (hns_tx_t *)g_ledger.ui.ctx;
+          hns_output_t *out = &ctx->curr_output;
+
+          if (out->cov.type == HNS_TRANSFER) {
+            char hrp[3];
+            char *hdr = "New Owner";
+            char *msg = g_ledger.ui.message;
+            uint8_t *flags = g_ledger.ui.flags;
+
+            switch(g_ledger.ui.network) {
+              case MAINNET:
+                strcpy(hrp, "hs");
+                break;
+
+              case TESTNET:
+                strcpy(hrp, "ts");
+                break;
+
+              case REGTEST:
+                strcpy(hrp, "rs");
+                break;
+
+              case SIMNET:
+                strcpy(hrp, "ss");
+                break;
+
+              default:
+                THROW(HNS_INCORRECT_P1);
+            }
+
+            hns_transfer_t *t = &out->cov.items.transfer;
+            uint8_t ver = t->addr_ver;
+            uint8_t *hash = t->addr_hash;
+            uint8_t len = t->addr_len;
+
+            if (!segwit_addr_encode(msg, hrp, ver, hash, len))
+              THROW(HNS_CANNOT_ENCODE_ADDRESS);
+
+            if (!ledger_ui_update(LEDGER_UI_NEW_OWNER, hdr, msg, flags))
+              THROW(HNS_CANNOT_UPDATE_UI);
+
+            break;
+          }
+
+          char *hdr = "Value";
+          char *msg = g_ledger.ui.message;
+          uint8_t *flags = g_ledger.ui.flags;
+
+          hex_to_dec(msg, out->val);
+
+          if (!ledger_ui_update(LEDGER_UI_VALUE, hdr, msg, flags))
+            THROW(HNS_CANNOT_UPDATE_UI);
+
+          break;
+        }
+
+        case LEDGER_UI_NEW_OWNER: {
+          hns_tx_t *ctx = (hns_tx_t *)g_ledger.ui.ctx;
+          hns_output_t *out = &ctx->curr_output;
+          char *hdr = "Value";
+          char *msg = g_ledger.ui.message;
+          uint8_t *flags = g_ledger.ui.flags;
+
+          hex_to_dec(msg, out->val);
+
+          if (!ledger_ui_update(LEDGER_UI_VALUE, hdr, msg, flags))
+            THROW(HNS_CANNOT_UPDATE_UI);
+
+          break;
+        }
+
+        case LEDGER_UI_VALUE: {
+          hns_tx_t *ctx = (hns_tx_t *)g_ledger.ui.ctx;
+          hns_addr_t *a = &ctx->curr_output.addr;
+          char hrp[3];
+          char *hdr = "Address";
+          char *msg = g_ledger.ui.message;
+          uint8_t *flags = g_ledger.ui.flags;
+
+          switch(g_ledger.ui.network) {
+            case MAINNET:
+              strcpy(hrp, "hs");
+              break;
+
+            case TESTNET:
+              strcpy(hrp, "ts");
+              break;
+
+            case REGTEST:
+              strcpy(hrp, "rs");
+              break;
+
+            case SIMNET:
+              strcpy(hrp, "ss");
+              break;
+
+            default:
+              THROW(HNS_INCORRECT_P1);
+          }
+
+          if (!segwit_addr_encode(msg, hrp, a->ver, a->hash, a->hash_len))
+            THROW(HNS_CANNOT_ENCODE_ADDRESS);
+
+          ledger_ui_update(LEDGER_UI_ADDRESS, hdr, msg, flags);
+          break;
+        }
+
+        case LEDGER_UI_ADDRESS: {
+          hns_output_t *out = &((hns_tx_t *)g_ledger.ui.ctx)->curr_output;
+          memset(out, 0, sizeof(hns_output_t));
+          ledger_apdu_exchange(IO_RETURN_AFTER_TX, g_ledger.ui.buflen, HNS_OK);
+          ledger_ui_idle();
+          break;
+        }
+      }
     }
   }
 
@@ -171,8 +439,15 @@ ledger_ui_display_prepro(const bagl_element_t *e) {
     case 1:
       return (*pos == 0) ? NULL : e;
 
-    case 2:
-      return (*pos == *len - 12) ? NULL : e;
+    case 2: {
+      if (*len <= 12)
+        return NULL;
+
+      if (*pos == *len - 12)
+        return NULL;
+
+      return e;
+    }
 
     default:
       return e;
@@ -198,7 +473,12 @@ ledger_ui_init_session(void) {
 }
 
 bool
-ledger_ui_update(char *header, char *message, uint8_t *flags) {
+ledger_ui_update(
+  enum ledger_ui_state state,
+  char *header,
+  char *message,
+  uint8_t *flags
+) {
   size_t header_len = strlen(header);
   size_t message_len = strlen(message);
 
@@ -214,9 +494,9 @@ ledger_ui_update(char *header, char *message, uint8_t *flags) {
   g_ledger.ui.viewport[12] = '\0';
   g_ledger.ui.message_len = message_len;
   g_ledger.ui.message_pos = 0;
-
-  UX_DISPLAY(ledger_ui_display, ledger_ui_display_prepro);
+  g_ledger.ui.state = state;
   *flags |= IO_ASYNCH_REPLY;
+  UX_DISPLAY(ledger_ui_display, ledger_ui_display_prepro);
 
   return true;
 }

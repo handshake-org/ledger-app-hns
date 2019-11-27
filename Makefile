@@ -27,6 +27,7 @@ all: default
 # Platform #
 ############
 
+DEFINES   += HAVE_BOLOS_APP_STACK_CANARY # TODO(boymanjor): remove me.
 DEFINES   += OS_IO_SEPROXYHAL IO_SEPROXYHAL_BUFFER_SIZE_B=300
 DEFINES   += HAVE_BAGL HAVE_SPRINTF
 DEFINES   += HAVE_IO_USB HAVE_L4_USBLIB IO_USB_MAX_ENDPOINTS=6
@@ -52,7 +53,7 @@ DEFINES       += WEBUSB_URL_SIZE_B=$(shell echo -n $(WEBUSB_URL) | wc -c)
 DEFINES       += WEBUSB_URL=$(shell echo -n $(WEBUSB_URL) | sed -e "s/./\\\'\0\\\',/g")
 
 # PRINTF (must have debug enabled firmware)
-DEBUG = 0
+DEBUG = 1 # TODO(boymanjor): remove me.
 ifneq ($(DEBUG),0)
 	DEFINES   += HAVE_PRINTF PRINTF=screen_printf
 else

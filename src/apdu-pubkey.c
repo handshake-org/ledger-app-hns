@@ -121,7 +121,7 @@ encode_xpub(
   return b58enc(b58, b58_sz, data, sizeof(data));
 }
 
-volatile uint8_t
+uint8_t
 hns_apdu_get_public_key(
   uint8_t p1,
   uint8_t p2,
@@ -253,7 +253,7 @@ hns_apdu_get_public_key(
       bin_to_hex(message, xpub.key, sizeof(xpub.key));
     }
 
-    if(!ledger_ui_update(header, message, flags))
+    if(!ledger_ui_update(LEDGER_UI_KEY, header, message, flags))
       THROW(HNS_CANNOT_UPDATE_UI);
 
     return 0;

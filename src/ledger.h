@@ -14,6 +14,11 @@
 #include "cx.h"
 
 /**
+ * Size of the apdu cache buffer.
+ */
+#define LEDGER_APDU_CACHE_SIZE 114
+
+/**
  * Maximum BIP32 derivation depth.
  */
 #define LEDGER_MAX_DEPTH 10
@@ -22,6 +27,22 @@
  * Exception used to initiate an application reset.
  */
 #define LEDGER_RESET EXCEPTION_IO_RESET
+
+/**
+ * These constants are used to determine the current
+ * state of the device's screen.
+ */
+enum ledger_ui_state {
+  LEDGER_UI_KEY,
+  LEDGER_UI_OUTPUT,
+  LEDGER_UI_VALUE,
+  LEDGER_UI_ADDRESS,
+  LEDGER_UI_NEW_OWNER,
+  LEDGER_UI_COVENANT_TYPE,
+  LEDGER_UI_NAME,
+  LEDGER_UI_FEES,
+  LEDGER_UI_SIGHASH_TYPE
+};
 
 /**
  * Blake2b context.
@@ -44,11 +65,17 @@ typedef struct ledger_ecdsa_xpub_s {
  */
 typedef struct ledger_ui_ctx_s {
   bool must_confirm;
-  uint8_t header[11];
-  uint8_t viewport[13];
-  uint8_t message[113];
+  char header[14];
+  char viewport[13];
+  char message[113];
   uint8_t message_len;
   uint8_t message_pos;
+  enum ledger_ui_state state;
+  void *ctx;
+  uint8_t buflen;
+  uint8_t *flags;
+  uint8_t network;
+  uint8_t ctr;
 } ledger_ui_ctx_t;
 
 /**
@@ -166,14 +193,17 @@ ledger_apdu_exchange(uint8_t flags, uint16_t len, uint16_t sw);
 /**
  * Helper function that generates a blake2b digest.
  *
- * @param [in] data is the data to hash.
- * @param [in] data_sz is the length of the data, in bytes.
- * @param [out] digest is the hash digest.
- * @param [in] digest_sz is the length of the hash digest, in bytes.
+ * In:
+ * @param data is the data to hash.
+ * @param data_sz is the length of the data, in bytes.
+ * @param digest_sz is the length of the hash digest, in bytes.
+ *
+ * Out:
+ * @param digest is the hash digest.
  */
 int
 ledger_blake2b(
-  void const * data,
+  void const *data,
   size_t data_sz,
   void const *digest,
   size_t digest_sz
@@ -182,8 +212,9 @@ ledger_blake2b(
 /**
  * Initializes the blake2b hash context.
  *
- * @param [in] ctx is the blake2b context.
- * @param [in] digest_sz is the length of the hash digest, in bytes.
+ * In:
+ * @param ctx is the blake2b context.
+ * @param digest_sz is the length of the hash digest, in bytes.
  */
 void
 ledger_blake2b_init(ledger_blake2b_ctx *ctx, size_t digest_sz);
@@ -191,9 +222,10 @@ ledger_blake2b_init(ledger_blake2b_ctx *ctx, size_t digest_sz);
 /**
  * Updates the blake2b hash context.
  *
- * @param [in] ctx is the blake2b context.
- * @param [in] data is the data to hash.
- * @param [in] data_sz is the length of the data, in bytes.
+ * In:
+ * @param ctx is the blake2b context.
+ * @param data is the data to hash.
+ * @param data_sz is the length of the data, in bytes.
  */
 void
 ledger_blake2b_update(
@@ -205,8 +237,11 @@ ledger_blake2b_update(
 /**
  * Returns blake2b hash digest.
  *
- * @param [in] ctx is the blake2b context.
- * @param [out] digest is the hash digest.
+ * In:
+ * @param ctx is the blake2b context.
+ *
+ * Out:
+ * @param digest is the hash digest.
  */
 void
 ledger_blake2b_final(ledger_blake2b_ctx *ctx, void *digest);
@@ -257,6 +292,20 @@ bool
 ledger_sha256(const void *data, size_t data_sz, void *digest);
 
 /**
+ * Returns sha3 hash digest.
+ *
+ * In:
+ * @param data is the data to hash.
+ * @param data_sz is the length of the data.
+ *
+ * Out:
+ * @param digest is the hash digest.
+ * @return boolean indicating success or failure.
+ */
+bool
+ledger_sha3(const void *data, size_t data_sz, void *digest);
+
+/**
  * Renders the main menu on screen.
  */
 void
@@ -281,6 +330,7 @@ ledger_ui_init_session(void);
  * Updates the device's on-screen text.
  *
  * In:
+ * @param state is the current state of the device confirmation.
  * @param header is the header text.
  * @param message is the message text.
  *
@@ -289,5 +339,10 @@ ledger_ui_init_session(void);
  * @return a boolean indicating success or failure
  */
 bool
-ledger_ui_update(char *header, char *message, uint8_t *flags);
+ledger_ui_update(
+  enum ledger_ui_state state,
+  char *header,
+  char *message,
+  uint8_t *flags
+);
 #endif
