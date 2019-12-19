@@ -251,7 +251,7 @@ read_u8(volatile uint8_t **buf, uint8_t *len, uint8_t *u8) {
 }
 
 static inline bool
-read_u16(uint8_t **buf, uint8_t *len, uint16_t *u16, bool be) {
+read_u16(volatile uint8_t **buf, uint8_t *len, uint16_t *u16, bool be) {
   if (*len < 2)
     return false;
 
@@ -270,7 +270,7 @@ read_u16(uint8_t **buf, uint8_t *len, uint16_t *u16, bool be) {
 }
 
 static inline bool
-read_u32(uint8_t **buf, uint8_t *len, uint32_t *u32, bool be) {
+read_u32(volatile uint8_t **buf, uint8_t *len, uint32_t *u32, bool be) {
   if (*len < 4)
     return false;
 
@@ -363,7 +363,7 @@ peek_varint(volatile uint8_t **buf, uint8_t *len, hns_varint_t *varint) {
 }
 
 static inline bool
-read_varsize(uint8_t **buf, uint8_t *len, size_t *val) {
+read_varsize(volatile uint8_t **buf, uint8_t *len, size_t *val) {
   hns_varint_t v;
 
   if (!read_varint(buf, len, &v))
@@ -375,7 +375,7 @@ read_varsize(uint8_t **buf, uint8_t *len, size_t *val) {
 }
 
 static inline bool
-read_bytes(volatile uint8_t **buf, uint8_t *len, uint8_t *out, size_t sz) {
+read_bytes(volatile uint8_t **buf, uint8_t *len, volatile uint8_t *out, size_t sz) {
   if (*len < sz)
     return false;
 
@@ -552,7 +552,7 @@ write_bytes(
 }
 
 static inline size_t
-write_varint(uint8_t **buf, hns_varint_t val) {
+write_varint(volatile uint8_t **buf, hns_varint_t val) {
   if (buf == NULL || *buf == NULL)
     return 0;
 
@@ -577,7 +577,7 @@ write_varint(uint8_t **buf, hns_varint_t val) {
 }
 
 static inline size_t
-write_varsize(uint8_t **buf, size_t val) {
+write_varsize(volatile uint8_t **buf, size_t val) {
   return write_varint(buf, (uint64_t)val);
 }
 

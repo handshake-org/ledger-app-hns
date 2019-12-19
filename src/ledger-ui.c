@@ -134,7 +134,7 @@ ledger_ui_approve_button(uint32_t mask, uint32_t ctr) {
           hns_output_t *out = &ctx->curr_output;
           char *hdr = "Covenant Type";
           char *msg = g_ledger.ui.message;
-          uint8_t *flags = g_ledger.ui.flags;
+          volatile uint8_t *flags = g_ledger.ui.flags;
 
           switch(out->cov.type) {
             case HNS_NONE:
@@ -196,7 +196,7 @@ ledger_ui_approve_button(uint32_t mask, uint32_t ctr) {
           if (out->cov.type == HNS_NONE) {
             char *hdr = "Value";
             char *msg = g_ledger.ui.message;
-            uint8_t *flags = g_ledger.ui.flags;
+            volatile uint8_t *flags = g_ledger.ui.flags;
 
             hex_to_dec(msg, out->val);
 
@@ -208,7 +208,7 @@ ledger_ui_approve_button(uint32_t mask, uint32_t ctr) {
 
           char *hdr = "Name";
           char *msg = g_ledger.ui.message;
-          uint8_t *flags = g_ledger.ui.flags;
+          volatile uint8_t *flags = g_ledger.ui.flags;
 
           switch(out->cov.type) {
             case HNS_OPEN:
@@ -267,7 +267,7 @@ ledger_ui_approve_button(uint32_t mask, uint32_t ctr) {
             char hrp[3];
             char *hdr = "New Owner";
             char *msg = g_ledger.ui.message;
-            uint8_t *flags = g_ledger.ui.flags;
+            volatile uint8_t *flags = g_ledger.ui.flags;
 
             switch(g_ledger.ui.network) {
               case MAINNET:
@@ -306,7 +306,7 @@ ledger_ui_approve_button(uint32_t mask, uint32_t ctr) {
 
           char *hdr = "Value";
           char *msg = g_ledger.ui.message;
-          uint8_t *flags = g_ledger.ui.flags;
+          volatile uint8_t *flags = g_ledger.ui.flags;
 
           hex_to_dec(msg, out->val);
 
@@ -321,7 +321,7 @@ ledger_ui_approve_button(uint32_t mask, uint32_t ctr) {
           hns_output_t *out = &ctx->curr_output;
           char *hdr = "Value";
           char *msg = g_ledger.ui.message;
-          uint8_t *flags = g_ledger.ui.flags;
+          volatile uint8_t *flags = g_ledger.ui.flags;
 
           hex_to_dec(msg, out->val);
 
@@ -337,7 +337,7 @@ ledger_ui_approve_button(uint32_t mask, uint32_t ctr) {
           char hrp[3];
           char *hdr = "Address";
           char *msg = g_ledger.ui.message;
-          uint8_t *flags = g_ledger.ui.flags;
+          volatile uint8_t *flags = g_ledger.ui.flags;
 
           switch(g_ledger.ui.network) {
             case MAINNET:
