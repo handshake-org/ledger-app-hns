@@ -239,7 +239,7 @@ size_varsize(size_t val) {
 }
 
 static inline bool
-read_u8(uint8_t **buf, uint8_t *len, uint8_t *u8) {
+read_u8(volatile uint8_t **buf, uint8_t *len, uint8_t *u8) {
   if (*len < 1)
     return false;
 
@@ -291,7 +291,7 @@ read_u32(uint8_t **buf, uint8_t *len, uint32_t *u32, bool be) {
 }
 
 static inline bool
-read_varint(uint8_t **buf, uint8_t *len, hns_varint_t *varint) {
+read_varint(volatile uint8_t **buf, uint8_t *len, hns_varint_t *varint) {
   if (*len < 1)
     return false;
 
@@ -350,7 +350,7 @@ read_varint(uint8_t **buf, uint8_t *len, hns_varint_t *varint) {
 }
 
 static inline bool
-peek_varint(uint8_t **buf, uint8_t *len, hns_varint_t *varint) {
+peek_varint(volatile uint8_t **buf, uint8_t *len, hns_varint_t *varint) {
   if (!read_varint(buf, len, varint))
     return false;
 
@@ -375,7 +375,7 @@ read_varsize(uint8_t **buf, uint8_t *len, size_t *val) {
 }
 
 static inline bool
-read_bytes(uint8_t **buf, uint8_t *len, uint8_t *out, size_t sz) {
+read_bytes(volatile uint8_t **buf, uint8_t *len, uint8_t *out, size_t sz) {
   if (*len < sz)
     return false;
 
@@ -389,7 +389,7 @@ read_bytes(uint8_t **buf, uint8_t *len, uint8_t *out, size_t sz) {
 
 static inline bool
 read_varbytes(
-  uint8_t **buf,
+  volatile uint8_t **buf,
   uint8_t *len,
   uint8_t *out,
   size_t out_sz,

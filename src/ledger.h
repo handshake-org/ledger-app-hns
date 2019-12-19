@@ -73,7 +73,7 @@ typedef struct ledger_ui_ctx_s {
   enum ledger_ui_state state;
   void *ctx;
   uint8_t buflen;
-  uint8_t *flags;
+  volatile uint8_t *flags;
   uint8_t network;
   uint8_t ctr;
 } ledger_ui_ctx_t;
@@ -141,7 +141,7 @@ ledger_apdu_buffer_clear(void);
  * @return boolean indicating success or failure.
  */
 bool
-ledger_apdu_cache_write(uint8_t *src, uint8_t src_len);
+ledger_apdu_cache_write(volatile uint8_t *src, uint8_t src_len);
 
 /**
  * Copies all data in the cache to the APDU exchange buffer. The len
@@ -230,7 +230,7 @@ ledger_blake2b_init(ledger_blake2b_ctx *ctx, size_t digest_sz);
 void
 ledger_blake2b_update(
   ledger_blake2b_ctx *ctx,
-  void const *data,
+  volatile void const *data,
   size_t data_sz
 );
 
@@ -273,7 +273,7 @@ ledger_ecdsa_sign(
   uint8_t depth,
   uint8_t *hash,
   size_t hash_len,
-  uint8_t *sig,
+  volatile uint8_t *sig,
   uint8_t sig_len
 );
 

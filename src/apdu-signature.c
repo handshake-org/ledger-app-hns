@@ -141,7 +141,7 @@ static ledger_blake2b_ctx blake2;
 
 static inline bool
 parse_item(
-  uint8_t **buf,
+  volatile uint8_t **buf,
   uint8_t *len,
   uint8_t *item,
   size_t item_sz,
@@ -163,7 +163,7 @@ parse_item(
 
 static inline bool
 parse_addr(
-  uint8_t **buf,
+  volatile uint8_t **buf,
   uint8_t *len,
   uint8_t *addr_hash,
   uint8_t *addr_len,
@@ -185,7 +185,7 @@ parse_addr(
 
 static inline bool
 parse_name(
-  uint8_t **buf,
+  volatile uint8_t **buf,
   uint8_t *len,
   char *name,
   uint8_t *name_len,
@@ -211,7 +211,7 @@ parse_name(
 
 static inline bool
 cmp_name(
-  uint8_t **buf,
+  volatile uint8_t **buf,
   uint8_t *len,
   uint8_t *name_hash,
   char *name,
@@ -242,7 +242,7 @@ cmp_name(
 
 static inline bool
 parse_resource_len(
-  uint8_t **buf,
+  volatile uint8_t **buf,
   uint8_t *len,
   hns_varint_t *ctr,
   ledger_blake2b_ctx *hash
@@ -263,7 +263,7 @@ parse_resource_len(
 
 static inline bool
 parse_resource(
-  uint8_t **buf,
+  volatile uint8_t **buf,
   uint8_t *len,
   hns_varint_t *ctr,
   ledger_blake2b_ctx *hash

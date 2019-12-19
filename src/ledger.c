@@ -92,7 +92,7 @@ ledger_apdu_buffer_clear(void) {
 }
 
 bool
-ledger_apdu_cache_write(uint8_t *src, uint8_t src_len) {
+ledger_apdu_cache_write(volatile uint8_t *src, uint8_t src_len) {
   if (src_len < 1)
     return false;
 
@@ -185,7 +185,7 @@ ledger_blake2b_init(ledger_blake2b_ctx *ctx, size_t digest_sz) {
 void
 ledger_blake2b_update(
   ledger_blake2b_ctx *ctx,
-  void const *data,
+  volatile void const *data,
   size_t data_sz
 ) {
   cx_hash(&ctx->header, 0, data, data_sz, NULL);
@@ -255,7 +255,7 @@ ledger_ecdsa_derive_xpub(ledger_ecdsa_xpub_t *xpub) {
  * @return a boolean indicating success or failure.
  */
 static inline bool
-parse_der(uint8_t *der, uint8_t der_len, uint8_t *sig, uint8_t sig_sz) {
+parse_der(uint8_t *der, uint8_t der_len, volatile uint8_t *sig, uint8_t sig_sz) {
   if (der == NULL || der_len < 70 || der_len > 72)
     return false;
 
@@ -267,7 +267,7 @@ parse_der(uint8_t *der, uint8_t der_len, uint8_t *sig, uint8_t sig_sz) {
   int len = 0;
 
   /* Prepare signature for padding. */
-  memset(sig, 0, sig_sz);
+  memset((uint8_t *)sig, 0, sig_sz);
 
   /* Check initial byte for correct format. */
   if (der == der_end || *(der++) != 0x30)
@@ -388,7 +388,7 @@ ledger_ecdsa_sign(
   uint8_t depth,
   uint8_t *hash,
   size_t hash_len,
-  uint8_t *sig,
+  volatile uint8_t *sig,
   uint8_t sig_sz
 ) {
   uint8_t der_sig[72];
