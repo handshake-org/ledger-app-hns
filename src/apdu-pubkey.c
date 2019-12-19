@@ -85,7 +85,7 @@ encode_xpub(
 ) {
   uint8_t data[82];
   uint8_t checksum[32];
-  uint8_t *buf = data;
+  volatile uint8_t *buf = data;
 
   switch(network) {
     case MAINNET:
@@ -220,40 +220,40 @@ hns_apdu_get_public_key(
 
     encode_addr(hrp, xpub.key, addr);
 
-    len += write_varbytes(&out, addr, 42);
+    len += write_varbytes(&out, (const uint8_t *)addr, 42);
   } else {
     len += write_u8(&out, 0);
   }
 
 #if defined(TARGET_NANOS)
   if (ui->must_confirm || non_standard) {
-    char *header = NULL;
-    char *message = NULL;
+    char *hdr = NULL;
+    char *msg = NULL;
 
     if (!ledger_apdu_cache_write(NULL, len))
       THROW(HNS_CACHE_WRITE_ERROR);
 
     if (non_standard) {
-      header = "WARNING";
-      message = "Non-standard BIP44 derivation path.";
+      hdr = "WARNING";
+      msg = "Non-standard BIP44 derivation path.";
     } else if (p2 & ADDR) {
-      header = "Address";
-      message = addr;
+      hdr = "Address";
+      msg = addr;
     } else if (p2 & XPUB) {
-      uint8_t message_sz = sizeof(ui->message);
-      header = "XPUB";
-      message = ui->message;
+      uint8_t msg_sz = sizeof(ui->message);
+      hdr = "XPUB";
+      msg = ui->message;
 
-      if (!encode_xpub(&xpub, p1 & NETWORK_MASK, message, &message_sz))
+      if (!encode_xpub(&xpub, p1 & NETWORK_MASK, msg, (size_t *)&msg_sz))
         THROW(HNS_CANNOT_ENCODE_XPUB);
 
     } else {
-      header = "Public Key";
-      message = ui->message;
-      bin_to_hex(message, xpub.key, sizeof(xpub.key));
+      hdr = "Public Key";
+      msg = ui->message;
+      bin_to_hex(msg, xpub.key, sizeof(xpub.key));
     }
 
-    if(!ledger_ui_update(LEDGER_UI_KEY, header, message, flags))
+    if(!ledger_ui_update(LEDGER_UI_KEY, hdr, msg, flags))
       THROW(HNS_CANNOT_UPDATE_UI);
 
     return 0;

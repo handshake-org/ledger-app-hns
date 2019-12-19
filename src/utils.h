@@ -422,7 +422,7 @@ read_varbytes(
 
 static inline bool
 read_bip44_path(
-  uint8_t **buf,
+  volatile uint8_t **buf,
   uint8_t *len,
   uint8_t *depth,
   uint32_t *path,
@@ -490,7 +490,7 @@ read_bip44_path(
 }
 
 static inline size_t
-write_u8(uint8_t **buf, uint8_t u8) {
+write_u8(volatile uint8_t **buf, uint8_t u8) {
   if (buf == NULL || *buf == NULL)
     return 0;
 
@@ -501,7 +501,7 @@ write_u8(uint8_t **buf, uint8_t u8) {
 }
 
 static inline size_t
-write_u16(uint8_t **buf, uint16_t u16, bool be) {
+write_u16(volatile uint8_t **buf, uint16_t u16, bool be) {
   if (buf == NULL || *buf == NULL)
     return 0;
 
@@ -509,7 +509,7 @@ write_u16(uint8_t **buf, uint16_t u16, bool be) {
     (*buf)[0] = (uint8_t)(u16 >> 8);
     (*buf)[1] = (uint8_t)u16;
   } else {
-    memmove(*buf, &u16, 2);
+    memmove((uint8_t *)*buf, &u16, 2);
   }
 
   *buf += 2;
@@ -518,7 +518,7 @@ write_u16(uint8_t **buf, uint16_t u16, bool be) {
 }
 
 static inline size_t
-write_u32(uint8_t **buf, uint32_t u32, bool be) {
+write_u32(volatile uint8_t **buf, uint32_t u32, bool be) {
   if (buf == NULL || *buf == NULL)
     return 0;
 
@@ -537,7 +537,11 @@ write_u32(uint8_t **buf, uint32_t u32, bool be) {
 }
 
 static inline size_t
-write_bytes(uint8_t **buf, const uint8_t *bytes, size_t sz) {
+write_bytes(
+  volatile uint8_t **buf,
+  volatile const uint8_t *bytes,
+  size_t sz
+) {
   if (buf == NULL || *buf == NULL)
     return 0;
 
@@ -578,7 +582,11 @@ write_varsize(uint8_t **buf, size_t val) {
 }
 
 static inline size_t
-write_varbytes(uint8_t **buf, const uint8_t *bytes, size_t sz) {
+write_varbytes(
+  volatile uint8_t **buf,
+  volatile const uint8_t *bytes,
+  size_t sz
+) {
   if (buf == NULL || *buf == NULL)
     return 0;
 

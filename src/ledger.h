@@ -343,6 +343,6 @@ ledger_ui_update(
   enum ledger_ui_state state,
   char *header,
   char *message,
-  uint8_t *flags
+  volatile uint8_t *flags
 );
 #endif
