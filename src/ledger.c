@@ -321,13 +321,11 @@ parse_der(uint8_t *der, uint8_t der_len, uint8_t *sig, uint8_t sig_sz) {
   if (len > 32)
     overflow = 1;
 
-  if (!overflow) {
+  if (!overflow)
     memmove(sig + 32 - len, der, len);
-  }
 
-  if (overflow) {
-    memmove(sig, 0, 32);
-  }
+  if (overflow)
+    memset(sig, 0, 32);
 
   der += len;
   sig += 32;
@@ -369,13 +367,11 @@ parse_der(uint8_t *der, uint8_t der_len, uint8_t *sig, uint8_t sig_sz) {
   if (len > 32)
     overflow = 1;
 
-  if (!overflow) {
+  if (!overflow)
     memmove(sig + 32 - len, der, len);
-  }
 
-  if (overflow) {
-    memmove(sig, 0, 32);
-  }
+  if (overflow)
+    memset(sig, 0, 32);
 
   der += len;
   sig += 32;
