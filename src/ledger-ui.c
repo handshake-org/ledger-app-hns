@@ -101,6 +101,8 @@ static bagl_element_t const ledger_ui_display[] = {
   LEDGER_UI_TEXT(0x00, 0, 26, 128, g_ledger.ui.viewport)
 };
 
+static char const network_prefix[4][3] = {"hs", "ts", "rs", "ss"};
+
 /**
  * Handles button events for the approval screen.
  *
@@ -188,32 +190,16 @@ ledger_ui_approve_button(uint32_t mask, uint32_t ctr) {
             char *hdr = "New Owner";
             char *msg = g_ledger.ui.message;
             volatile uint8_t *flags = g_ledger.ui.flags;
-
-            switch(g_ledger.ui.network) {
-              case MAINNET:
-                strcpy(hrp, "hs");
-                break;
-
-              case TESTNET:
-                strcpy(hrp, "ts");
-                break;
-
-              case REGTEST:
-                strcpy(hrp, "rs");
-                break;
-
-              case SIMNET:
-                strcpy(hrp, "ss");
-                break;
-
-              default:
-                THROW(HNS_INCORRECT_P1);
-            }
-
+            uint8_t netflag = g_ledger.ui.network >> 1;
             hns_transfer_t *t = &out->cov.items.transfer;
             uint8_t ver = t->addr_ver;
             uint8_t *hash = t->addr_hash;
             uint8_t len = t->addr_len;
+
+            if (netflag < 0 || netflag > 3)
+              THROW(HNS_INCORRECT_P1);
+
+            strcpy(hrp, network_prefix[netflag]);
 
             if (!segwit_addr_encode(msg, hrp, ver, hash, len))
               THROW(HNS_CANNOT_ENCODE_ADDRESS);
@@ -258,27 +244,12 @@ ledger_ui_approve_button(uint32_t mask, uint32_t ctr) {
           char *hdr = "Address";
           char *msg = g_ledger.ui.message;
           volatile uint8_t *flags = g_ledger.ui.flags;
+          uint8_t netflag = g_ledger.ui.network >> 1;
 
-          switch(g_ledger.ui.network) {
-            case MAINNET:
-              strcpy(hrp, "hs");
-              break;
+          if (netflag < 0 || netflag > 3)
+            THROW(HNS_INCORRECT_P1);
 
-            case TESTNET:
-              strcpy(hrp, "ts");
-              break;
-
-            case REGTEST:
-              strcpy(hrp, "rs");
-              break;
-
-            case SIMNET:
-              strcpy(hrp, "ss");
-              break;
-
-            default:
-              THROW(HNS_INCORRECT_P1);
-          }
+          strcpy(hrp, network_prefix[netflag]);
 
           if (!segwit_addr_encode(msg, hrp, a->ver, a->hash, a->hash_len))
             THROW(HNS_CANNOT_ENCODE_ADDRESS);
