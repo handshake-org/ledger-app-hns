@@ -100,15 +100,11 @@
 typedef struct hns_open_s {
   uint8_t name_hash[32];
   uint8_t height[4];
-  uint8_t name_len;
-  char name[64];
 } hns_open_t;
 
 typedef struct hns_bid_s {
   uint8_t name_hash[32];
   uint8_t height[4];
-  uint8_t name_len;
-  char name[64];
   uint8_t hash[32];
 } hns_bid_t;
 
@@ -116,19 +112,11 @@ typedef struct hns_reveal_s {
   uint8_t name_hash[32];
   uint8_t height[4];
   uint8_t nonce[32];
-
-  /* Used to verify name_hash. */
-  uint8_t name_len;
-  char name[64];
 } hns_reveal_t;
 
 typedef struct hns_redeem_s {
   uint8_t name_hash[32];
   uint8_t height[4];
-
-  /* Used to verify name_hash. */
-  uint8_t name_len;
-  char name[64];
 } hns_redeem_t;
 
 /**
@@ -142,10 +130,6 @@ typedef struct hns_register_s {
   hns_varint_t resource_len;
   hns_varint_t resource_ctr;
   uint8_t hash[32];
-
-  /* Used to verify name_hash. */
-  uint8_t name_len;
-  char name[64];
 } hns_register_t;
 
 typedef struct hns_update_s {
@@ -153,20 +137,12 @@ typedef struct hns_update_s {
   uint8_t height[4];
   hns_varint_t resource_len;
   hns_varint_t resource_ctr;
-
-  /* Used to verify name_hash. */
-  uint8_t name_len;
-  char name[64];
 } hns_update_t;
 
 typedef struct hns_renew_s {
   uint8_t name_hash[32];
   uint8_t height[4];
   uint8_t hash[32];
-
-  /* Used to verify name_hash. */
-  uint8_t name_len;
-  char name[64];
 } hns_renew_t;
 
 typedef struct hns_transfer_s {
@@ -175,17 +151,11 @@ typedef struct hns_transfer_s {
   uint8_t addr_ver;
   uint8_t addr_len;
   uint8_t addr_hash[32];
-
-  /* Used to verify name_hash. */
-  uint8_t name_len;
-  char name[64];
 } hns_transfer_t;
 
 typedef struct hns_finalize_s {
   uint8_t name_hash[32];
   uint8_t height[4];
-  uint8_t name_len;
-  char name[64];
   uint8_t flags;
   uint8_t claim_height[4];
   uint8_t renewal_count[4];
@@ -195,10 +165,6 @@ typedef struct hns_finalize_s {
 typedef struct hns_revoke_s {
   uint8_t name_hash[32];
   uint8_t height[4];
-
-  /* Used to verify name_hash. */
-  uint8_t name_len;
-  char name[64];
 } hns_revoke_t;
 
 typedef union {
@@ -222,6 +188,11 @@ typedef struct hns_cov_s {
   uint8_t type;
   hns_varint_t items_len;
   hns_cov_items_t items;
+
+  /* Name is stored on covenant to allow
+   * simple verification of the name hash. */
+  uint8_t name_len;
+  char name[64];
 } hns_cov_t;
 
 /**

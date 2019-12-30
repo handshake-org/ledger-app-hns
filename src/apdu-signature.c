@@ -548,7 +548,8 @@ parse(
             break;
 
           case HNS_OPEN: {
-            hns_open_t *o = &out->cov.items.open;
+            hns_cov_t *c = &out->cov;
+            hns_open_t *o = &c->items.open;
             switch (ctx.next_item) {
               case NAME_HASH:
                 if (!parse_item(&buf, len, o->name_hash, 32, outs))
@@ -559,14 +560,15 @@ parse(
                   goto inner_break;
 
               case OPEN_NAME:
-                if (!parse_name(&buf, len, o->name, &o->name_len, outs))
+                if (!parse_name(&buf, len, c->name, &c->name_len, outs))
                   goto inner_break;
             }
             break;
           }
 
           case HNS_BID: {
-            hns_bid_t *b = &out->cov.items.bid;
+            hns_cov_t *c = &out->cov;
+            hns_bid_t *b = &c->items.bid;
             switch (ctx.next_item) {
               case NAME_HASH:
                 if (!parse_item(&buf, len, b->name_hash, 32, outs))
@@ -577,7 +579,7 @@ parse(
                   goto inner_break;
 
               case BID_NAME:
-                if (!parse_name(&buf, len, b->name, &b->name_len, outs))
+                if (!parse_name(&buf, len, c->name, &c->name_len, outs))
                   goto inner_break;
 
               case BID_HASH:
@@ -588,7 +590,8 @@ parse(
           }
 
           case HNS_REVEAL: {
-            hns_reveal_t *r = &out->cov.items.reveal;
+            hns_cov_t *c = &out->cov;
+            hns_reveal_t *r = &c->items.reveal;
             switch (ctx.next_item) {
               case NAME_HASH:
                 if (!parse_item(&buf, len, r->name_hash, 32, outs))
@@ -603,14 +606,15 @@ parse(
                   goto inner_break;
 
               case REVEAL_NAME:
-                if (!cmp_name(&buf, len, r->name_hash, r->name, &r->name_len))
+                if (!cmp_name(&buf, len, r->name_hash, c->name, &c->name_len))
                   goto inner_break;
             }
             break;
           }
 
           case HNS_REDEEM: {
-            hns_redeem_t *r = &out->cov.items.redeem;
+            hns_cov_t *c = &out->cov;
+            hns_redeem_t *r = &c->items.redeem;
             switch (ctx.next_item) {
               case NAME_HASH:
                 if (!parse_item(&buf, len, r->name_hash, 32, outs))
@@ -621,14 +625,15 @@ parse(
                   goto inner_break;
 
               case REDEEM_NAME:
-                if (!cmp_name(&buf, len, r->name_hash, r->name, &r->name_len))
+                if (!cmp_name(&buf, len, r->name_hash, c->name, &c->name_len))
                   goto inner_break;
             }
             break;
           }
 
           case HNS_REGISTER: {
-            hns_register_t *r = &out->cov.items.register_cov;
+            hns_cov_t *c = &out->cov;
+            hns_register_t *r = &c->items.register_cov;
             switch (ctx.next_item) {
               case NAME_HASH:
                 if (!parse_item(&buf, len, r->name_hash, 32, outs))
@@ -651,14 +656,15 @@ parse(
                   goto inner_break;
 
               case REGISTER_NAME:
-                if (!cmp_name(&buf, len, r->name_hash, r->name, &r->name_len))
+                if (!cmp_name(&buf, len, r->name_hash, c->name, &c->name_len))
                   goto inner_break;
             }
             break;
           }
 
           case HNS_UPDATE: {
-            hns_update_t *u = &out->cov.items.update;
+            hns_cov_t *c = &out->cov;
+            hns_update_t *u = &c->items.update;
             switch(ctx.next_item) {
               case NAME_HASH:
                 if (!parse_item(&buf, len, u->name_hash, 32, outs))
@@ -677,14 +683,15 @@ parse(
                   goto inner_break;
 
               case UPDATE_NAME:
-                if (!cmp_name(&buf, len, u->name_hash, u->name, &u->name_len))
+                if (!cmp_name(&buf, len, u->name_hash, c->name, &c->name_len))
                   goto inner_break;
             }
             break;
           }
 
           case HNS_RENEW: {
-            hns_renew_t *r = &out->cov.items.renew;
+            hns_cov_t *c = &out->cov;
+            hns_renew_t *r = &c->items.renew;
             switch(ctx.next_item) {
               case NAME_HASH:
                 if (!parse_item(&buf, len, r->name_hash, 32, outs))
@@ -699,14 +706,15 @@ parse(
                   goto inner_break;
 
               case RENEW_NAME:
-                if (!cmp_name(&buf, len, r->name_hash, r->name, &r->name_len))
+                if (!cmp_name(&buf, len, r->name_hash, c->name, &c->name_len))
                   goto inner_break;
             }
             break;
           }
 
           case HNS_TRANSFER: {
-            hns_transfer_t *t = &out->cov.items.transfer;
+            hns_cov_t *c = &out->cov;
+            hns_transfer_t *t = &c->items.transfer;
             switch (ctx.next_item) {
               case NAME_HASH:
                 if (!parse_item(&buf, len, t->name_hash, 32, outs))
@@ -725,14 +733,15 @@ parse(
                   goto inner_break;
 
               case TRANSFER_NAME:
-                if (!cmp_name(&buf, len, t->name_hash, t->name, &t->name_len))
+                if (!cmp_name(&buf, len, t->name_hash, c->name, &c->name_len))
                   goto inner_break;
             }
             break;
           }
 
           case HNS_FINALIZE: {
-            hns_finalize_t *f = &out->cov.items.finalize;
+            hns_cov_t *c = &out->cov;
+            hns_finalize_t *f = &c->items.finalize;
             switch(ctx.next_item) {
               case NAME_HASH:
                 if (!parse_item(&buf, len, f->name_hash, 32, outs))
@@ -743,7 +752,7 @@ parse(
                   goto inner_break;
 
               case FINALIZE_NAME:
-                if (!parse_name(&buf, len, f->name, &f->name_len, outs))
+                if (!parse_name(&buf, len, c->name, &c->name_len, outs))
                   goto inner_break;
 
               case FLAGS:
@@ -766,7 +775,8 @@ parse(
           }
 
           case HNS_REVOKE: {
-            hns_revoke_t *r = &out->cov.items.revoke;
+            hns_cov_t *c = &out->cov;
+            hns_revoke_t *r = &c->items.revoke;
             switch (ctx.next_item) {
               case NAME_HASH:
                 if (!parse_item(&buf, len, r->name_hash, 32, outs))
@@ -777,7 +787,7 @@ parse(
                   goto inner_break;
 
               case REVOKE_NAME:
-                if (!cmp_name(&buf, len, r->name_hash, r->name, &r->name_len))
+                if (!cmp_name(&buf, len, r->name_hash, c->name, &c->name_len))
                   goto inner_break;
             }
             break;

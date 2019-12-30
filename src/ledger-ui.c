@@ -171,52 +171,11 @@ ledger_ui_approve_button(uint32_t mask, uint32_t ctr) {
           char *msg = g_ledger.ui.message;
           volatile uint8_t *flags = g_ledger.ui.flags;
 
-          switch(out->cov.type) {
-            case HNS_OPEN:
-              strcpy(msg, out->cov.items.open.name);
-              break;
+          strcpy(msg, out->cov.name);
 
-            case HNS_BID:
-              strcpy(msg, out->cov.items.bid.name);
-              break;
+          if(!ledger_ui_update(LEDGER_UI_NAME, hdr, msg, flags))
+            THROW(HNS_CANNOT_UPDATE_UI);
 
-            case HNS_REVEAL:
-              strcpy(msg, out->cov.items.reveal.name);
-              break;
-
-            case HNS_REDEEM:
-              strcpy(msg, out->cov.items.redeem.name);
-              break;
-
-            case HNS_REGISTER:
-              strcpy(msg, out->cov.items.register_cov.name);
-              break;
-
-            case HNS_UPDATE:
-              strcpy(msg, out->cov.items.update.name);
-              break;
-
-            case HNS_RENEW:
-              strcpy(msg, out->cov.items.renew.name);
-              break;
-
-            case HNS_TRANSFER:
-              strcpy(msg, out->cov.items.transfer.name);
-              break;
-
-            case HNS_FINALIZE:
-              strcpy(msg, out->cov.items.finalize.name);
-              break;
-
-            case HNS_REVOKE:
-              strcpy(msg, out->cov.items.revoke.name);
-              break;
-
-            default:
-              THROW(HNS_UNSUPPORTED_COVENANT_TYPE);
-          }
-
-          ledger_ui_update(LEDGER_UI_NAME, hdr, msg, flags);
           break;
         }
 
