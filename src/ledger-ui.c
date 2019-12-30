@@ -136,55 +136,16 @@ ledger_ui_approve_button(uint32_t mask, uint32_t ctr) {
           char *msg = g_ledger.ui.message;
           volatile uint8_t *flags = g_ledger.ui.flags;
 
-          switch(out->cov.type) {
-            case HNS_NONE:
-              strcpy(msg, "NONE");
-              break;
+          const char label[12][9] = {
+            "NONE", "CLAIM", "OPEN", "BID",
+            "REVEAL", "REDEEM", "REGISTER", "UPDATE",
+            "RENEW", "TRANSFER", "FINALIZE", "REVOKE"
+          };
 
-            case HNS_OPEN:
-              strcpy(msg, "OPEN");
-              break;
+          if (out->cov.type < HNS_NONE || out->cov.type > HNS_REVOKE)
+            THROW(HNS_UNSUPPORTED_COVENANT_TYPE);
 
-           case HNS_BID:
-              strcpy(msg, "BID");
-              break;
-
-            case HNS_REVEAL:
-              strcpy(msg, "REVEAL");
-              break;
-
-            case HNS_REDEEM:
-              strcpy(msg, "REDEEM");
-              break;
-
-            case HNS_REGISTER:
-              strcpy(msg, "REGISTER");
-              break;
-
-            case HNS_UPDATE:
-              strcpy(msg, "UPDATE");
-              break;
-
-            case HNS_RENEW:
-              strcpy(msg, "RENEW");
-              break;
-
-            case HNS_TRANSFER:
-              strcpy(msg, "TRANSFER");
-              break;
-
-            case HNS_FINALIZE:
-              strcpy(msg, "FINALIZE");
-              break;
-
-            case HNS_REVOKE:
-              strcpy(msg, "REVOKE");
-              break;
-
-            default:
-              THROW(HNS_UNSUPPORTED_COVENANT_TYPE);
-          }
-
+          strcpy(msg, label[out->cov.type]);
           ledger_ui_update(LEDGER_UI_COVENANT_TYPE, hdr, msg, flags);
           break;
         }
