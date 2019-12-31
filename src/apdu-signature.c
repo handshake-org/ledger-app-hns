@@ -43,6 +43,7 @@
  * These constants are used to determine sighash types for
  * the input signatures.
  */
+#define ZERO 0x00
 #define SIGHASH_ALL 0x01
 #define SIGHASH_NONE 0x02
 #define SIGHASH_SINGLE 0x03
@@ -1202,30 +1203,17 @@ sign(
   if (*type != SIGHASH_ALL) {
     char *hdr = "Sighash Type";
     char *msg = ui->message;
+    const char types[5][14] = {"", "ALL", "NONE", "SINGLE", "SINGLEREVERSE"};
+    uint8_t low = *type & 0x1f;
+    uint8_t high = *type & 0xf0;
 
-    switch(*type & 0x1f) {
-      case SIGHASH_ALL:
-        strcpy(msg, "ALL");
-        break;
+    if (low < SIGHASH_ALL || low > SIGHASH_SINGLEREVERSE)
+      THROW(HNS_UNSUPPORTED_SIGHASH_TYPE);
 
-      case SIGHASH_NONE:
-        strcpy(msg, "NONE");
-        break;
+    strcpy(msg, types[low]);
 
-      case SIGHASH_SINGLE:
-        strcpy(msg, "SINGLE");
-        break;
-
-      case SIGHASH_SINGLEREVERSE:
-        strcpy(msg, "SINGLEREVERSE");
-        break;
-
-      default:
-        THROW(HNS_UNSUPPORTED_SIGHASH_TYPE);
-    }
-
-    switch(*type & 0xf0) {
-      case 0x00:
+    switch(high) {
+      case ZERO:
         break;
 
       case SIGHASH_NOINPUT:
