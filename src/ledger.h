@@ -330,7 +330,7 @@ ledger_ui_init_session(void);
  * Updates the device's on-screen text.
  *
  * In:
- * @param state is the current state of the device confirmation.
+ * @param state indicates the current item displayed on-screen.
  * @param header is the header text.
  * @param message is the message text.
  *
