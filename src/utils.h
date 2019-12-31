@@ -509,7 +509,7 @@ write_u16(volatile uint8_t **buf, uint16_t u16, bool be) {
     (*buf)[0] = (uint8_t)(u16 >> 8);
     (*buf)[1] = (uint8_t)u16;
   } else {
-    memmove((uint8_t *)*buf, &u16, 2);
+    memmove(*buf, &u16, 2);
   }
 
   *buf += 2;

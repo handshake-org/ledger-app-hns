@@ -267,7 +267,7 @@ parse_der(uint8_t *der, uint8_t der_len, volatile uint8_t *sig, uint8_t sig_sz) 
   int len = 0;
 
   /* Prepare signature for padding. */
-  memset((uint8_t *)sig, 0, sig_sz);
+  memset(sig, 0, sig_sz);
 
   /* Check initial byte for correct format. */
   if (der == der_end || *(der++) != 0x30)
