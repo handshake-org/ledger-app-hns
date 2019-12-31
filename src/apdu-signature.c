@@ -139,6 +139,21 @@ static ledger_blake2b_ctx blake1;
 /* General purpose hashing context. */
 static ledger_blake2b_ctx blake2;
 
+/**
+ * Parses an item from the covenant items list
+ * and adds it to the provided hash context.
+ * Upon completion, the item counter is increased.
+ *
+ * In:
+ * @param item_sz is the expected size of the item (bytes).
+ *
+ * Out:
+ * @param buf is the input buffer.
+ * @param len is the length of the input buffer.
+ * @param item is the parsed item.
+ * @param hash is the blake2b hash context.
+ * @returns a boolean indicating success or failure.
+ */
 static inline bool
 parse_item(
   volatile uint8_t **buf,
@@ -161,6 +176,19 @@ parse_item(
   return true;
 }
 
+/**
+ * Parses an address from the covenant items list
+ * and adds it to the provided hash context. Upon
+ * completion, the item counter is increased.
+ *
+ * Out:
+ * @param buf is the input buffer.
+ * @param len is the length of the input buffer.
+ * @param addr_hash is the parsed address hash.
+ * @param addr_len is the parsed address length.
+ * @param hash is the blake2b hash context.
+ * @returns a boolean indicating success or failure.
+ */
 static inline bool
 parse_addr(
   volatile uint8_t **buf,
@@ -183,6 +211,19 @@ parse_addr(
   return true;
 }
 
+/**
+ * Parses a name from the covenant items list
+ * and adds it to the provided hash context. Upon
+ * completion, the item counter is increased.
+ *
+ * Out:
+ * @param buf is the input buffer.
+ * @param len is the length of the input buffer.
+ * @param name is the parsed name.
+ * @param name_len is the parsed name length.
+ * @param hash is the blake2b hash context.
+ * @returns a boolean indicating success or failure.
+ */
 static inline bool
 parse_name(
   volatile uint8_t **buf,
@@ -209,6 +250,21 @@ parse_name(
   return true;
 }
 
+/**
+ * Parses a name from the serialized tx and
+ * compares it against the name hash in the
+ * covenant items list.
+ *
+ * In:
+ * @param name_hash is the blake2b hash of the name.
+ *
+ * Out:
+ * @param buf is the input buffer.
+ * @param len is the length of the input buffer.
+ * @param name is the parsed name.
+ * @param name_len is the parsed name length.
+ * @returns a boolean indicating success or failure.
+ */
 static inline bool
 cmp_name(
   volatile uint8_t **buf,
@@ -240,6 +296,19 @@ cmp_name(
   return true;
 }
 
+/**
+ * Parses the length of the resource bytes from
+ * the covenant items list and adds it to the
+ * hash context. Upon completion, the item counter
+ * is increased.
+ *
+ * Out:
+ * @param buf is the input buffer.
+ * @param len is the length of the input buffer.
+ * @param ctr is the length of the resource.
+ * @param hash is the blake2b hash context.
+ * @returns a boolean indicating success or failure.
+ */
 static inline bool
 parse_resource_len(
   volatile uint8_t **buf,
@@ -261,6 +330,18 @@ parse_resource_len(
   return true;
 }
 
+/**
+ * Parses resource bytes from the covenant
+ * items list and adds them to the hash context.
+ * Upon completion, the item counter is increased.
+ *
+ * Out:
+ * @param buf is the input buffer.
+ * @param len is the length of the input buffer.
+ * @param ctr is the length of the resource.
+ * @param hash is the blake2b hash context.
+ * @returns a boolean indicating success or failure.
+ */
 static inline bool
 parse_resource(
   volatile uint8_t **buf,
