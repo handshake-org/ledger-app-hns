@@ -535,11 +535,12 @@ parse(
      /**
       * If the output has a covenant type that includes the name in its items
       * field, we do not need to verify the name hash. Otherwise, we need to
-      * verify the name hash before confirming the plaintext on-screen. In this
-      * case, the client is required to send the plaintext name with the other
+      * verify the name hash before confirming the name on-screen. In this
+      * case, the client is required to send the name with the other
       * covenant details.
       *
-      * Note: the name is not included in the output commitment.
+      * Note: the name is not included in the output commitment unless it is
+      * a part of the covenant's items list.
       */
 
       case COVENANT_ITEMS: {
@@ -547,6 +548,10 @@ parse(
           case HNS_NONE:
             break;
 
+          /**
+           * For each subsequent case, the internal
+           * switch fall-throughs are intentional.
+           */
           case HNS_OPEN: {
             hns_cov_t *c = &out->cov;
             hns_open_t *o = &c->items.open;
