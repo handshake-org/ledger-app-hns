@@ -58,7 +58,7 @@ and running on your machine.
 
 Clone the git repo:
 ```bash
-$ git clone https://github.com/boymanjor/ledger-app-hns.git
+$ git clone https://github.com/handshake-org/ledger-app-hns.git
 $ cd ledger-app-hns
 ```
 
@@ -148,7 +148,7 @@ loading it onto your device. The last two steps are triggered by one
 
 Clone the git repo:
 ```bash
-$ git clone https://github.com/boymanjor/ledger-app-hns.git
+$ git clone https://github.com/handshake-org/ledger-app-hns.git
 $ cd ledger-app-hns
 ```
 
@@ -182,7 +182,7 @@ abandon abandon abandon abandon abandon abandon
 abandon abandon abandon abandon abandon about
 ```
 
-[tests]: https://github.com/boymanjor/hsd-ledger#end-to-end-tests
+[tests]: https://github.com/handshake-org/hsd-ledger#end-to-end-tests
 
 <br/>
 
@@ -514,7 +514,7 @@ and [ledger-app-eth-dockerized][docker].
 
 See LICENSE for more info.
 
-[hsd-ledger]: https://github.com/boymanjor/hsd-ledger
+[hsd-ledger]: https://github.com/handshake-org/hsd-ledger
 [ledger]: https://ledger.readhthedocs.io/en/latest/index.html
 [apdu]: https://en.wikipedia.org/wiki/Smart_card_application_protocol_data_unit
 [sia]: https://gitlab.com/nebulouslabs/nanos-app-sia

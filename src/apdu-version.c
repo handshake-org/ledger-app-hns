@@ -1,7 +1,7 @@
 /**
  * apdu-version.c - app version number for hns
  * Copyright (c) 2018, Boyma Fahnbulleh (MIT License).
- * https://github.com/boymanjor/ledger-app-hns
+ * https://github.com/handshake-org/ledger-app-hns
  */
 #include "apdu.h"
 #include "ledger.h"

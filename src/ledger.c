@@ -1,7 +1,7 @@
 /**
  * ledger.c - wrapper for the Ledger Nanos Secure SDK
  * Copyright (c) 2018, Boyma Fahnbulleh (MIT License).
- * https://github.com/boymanjor/ledger-app-hns
+ * https://github.com/handshake-org/ledger-app-hns
  */
 #include <stdbool.h>
 #include "ledger.h"

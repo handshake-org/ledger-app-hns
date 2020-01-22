@@ -1,7 +1,7 @@
 /**
  * ledger.h - header file for Ledger related source.
  * Copyright (c) 2018, Boyma Fahnbulleh (MIT License).
- * https://github.com/boymanjor/ledger-app-hns
+ * https://github.com/handshake-org/ledger-app-hns
  */
 #ifndef _HNS_LEDGER_H
 #define _HNS_LEDGER_H

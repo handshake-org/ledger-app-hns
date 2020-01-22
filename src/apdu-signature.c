@@ -1,7 +1,7 @@
 /**
  * apdu-signature.c - transaction parsing & signing for hns
  * Copyright (c) 2018, Boyma Fahnbulleh (MIT License).
- * https://github.com/boymanjor/ledger-app-hns
+ * https://github.com/handshake-org/ledger-app-hns
  */
 #include <stdbool.h>
 #include <string.h>

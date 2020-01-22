@@ -1,7 +1,7 @@
 /**
  * apdu.h - header file for apdu commands
  * Copyright (c) 2018, Boyma Fahnbulleh (MIT License).
- * https://github.com/boymanjor/ledger-app-hns
+ * https://github.com/handshake-org/ledger-app-hns
  */
 #ifndef _HNS_APDU_H
 #define _HNS_APDU_H
