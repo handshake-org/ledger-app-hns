@@ -170,7 +170,7 @@ add_u64(uint8_t *target, uint8_t *a, uint8_t *b) {
   uint8_t i;
 
   for (i = 0; i < 8; i++) {
-    uint8_t val = a[i] + b[i] + (carry ? 1 : 0);
+    unsigned short val = a[i] + b[i] + (carry ? 1 : 0);
     carry = (val > 255);
     target[i] = (val & 255);
   }
@@ -191,8 +191,8 @@ sub_u64(uint8_t *target, uint8_t *a, uint8_t *b) {
   uint8_t i;
 
   for (i = 0; i < 8; i++) {
-    uint8_t ta = a[i];
-    uint8_t tb = b[i];
+    unsigned short ta = a[i];
+    unsigned short tb = b[i];
 
     if (borrow) {
       if (ta <= tb) {
