@@ -23,13 +23,14 @@ RUN pip3 install virtualenv
 RUN virtualenv ledger
 RUN /bin/sh ledger/bin/activate
 RUN pip3 install ledgerblue
+RUN pip3 install Pillow
 
 RUN mkdir -p /ledger-app-hns
 RUN git clone https://github.com/LedgerHQ/nanos-secure-sdk /nanos-secure-sdk
 
 WORKDIR /nanos-secure-sdk
 ENV BOLOS_SDK=/nanos-secure-sdk
-RUN git checkout nanos-1553
+RUN git checkout og-1.6.0-1
 RUN sed -i s/python/python3/g icon.py
 RUN echo '#!/bin/bash\npython3 "$@"' > /usr/bin/python && \
     chmod +x /usr/bin/python

@@ -223,7 +223,8 @@ ledger_ecdsa_derive_xpub(ledger_ecdsa_xpub_t *xpub) {
 
   /* If parent exists, store fingerprint. */
   if (xpub->depth > 1) {
-    uint8_t buffer[32];
+    uint8_t buf32[32];
+    uint8_t buf20[20];
     union {
       cx_sha256_t sha256;
       cx_ripemd160_t ripemd;
@@ -231,10 +232,10 @@ ledger_ecdsa_derive_xpub(ledger_ecdsa_xpub_t *xpub) {
 
     ledger_ecdsa_derive_node(xpub->path, xpub->depth - 1, &n);
     cx_sha256_init(&ctx.sha256);
-    cx_hash(&ctx.sha256.header, CX_LAST, n.pub.W, 33, buffer);
+    cx_hash(&ctx.sha256.header, CX_LAST, n.pub.W, 33, buf32);
     cx_ripemd160_init(&ctx.ripemd);
-    cx_hash(&ctx.ripemd.header, CX_LAST, buffer, sizeof(buffer), NULL);
-    memmove(xpub->fp, ctx.ripemd.acc, sizeof(xpub->fp));
+    cx_hash(&ctx.ripemd.header, CX_LAST, buf32, sizeof(buf32), buf20);
+    memmove(xpub->fp, buf20, sizeof(xpub->fp));
     memset(&n.prv, 0, sizeof(n.prv));
   }
 }

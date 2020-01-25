@@ -455,29 +455,30 @@ read_bip44_path(
     *info |= HNS_BIP44_NON_STD;
 
   uint8_t level;
+  uint32_t value;
 
   for (level = 0; level < *depth; level++) {
-    if (!read_u32(buf, len, &path[level], HNS_BE)) {
+    if (!read_u32(buf, len, &value, HNS_BE)) {
       *buf -= 4 + (4 * level);
       *len += 4 + (4 * level);
       return false;
     }
 
-    uint32_t index = path[level];
+    path[level] = value;
 
     switch(level) {
       case 0:
-        if (index != HNS_BIP44_PURPOSE)
+        if (value != HNS_BIP44_PURPOSE)
           *info = HNS_BIP44_NON_ADDR | HNS_BIP44_NON_STD;
         break;
 
       case 1:
-        if (index < HNS_BIP44_MAINNET || index > HNS_BIP44_SIMNET)
+        if (value < HNS_BIP44_MAINNET || value > HNS_BIP44_SIMNET)
           *info = HNS_BIP44_NON_ADDR | HNS_BIP44_NON_STD;
         break;
 
       case 2:
-        if (!(index & HNS_HARDENED))
+        if (!(value & HNS_HARDENED))
           *info = HNS_BIP44_NON_ADDR | HNS_BIP44_NON_STD;
         break;
 

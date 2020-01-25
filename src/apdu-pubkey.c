@@ -194,7 +194,7 @@ hns_apdu_get_public_key(
   char addr[75];
 
   if (p2 & ADDR) {
-    char hrp[2];
+    char hrp[3];
 
     switch(xpub.path[1]) {
       case HNS_BIP44_MAINNET:
