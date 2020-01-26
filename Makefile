@@ -95,6 +95,13 @@ include $(BOLOS_SDK)/Makefile.glyphs
 APP_SOURCE_PATH  += src vendor/bech32 vendor/base58
 SDK_SOURCE_PATH  += lib_stusb lib_stusb_impl lib_u2f qrcode
 
+# SDK build target
+ifeq ($(GIT_REF),)
+GIT_REF := og-1.6.0-1
+else
+$(info GIT_REF is set to $(GIT_REF))
+endif
+
 load: all
 	python -m ledgerblue.loadApp $(APP_LOAD_PARAMS)
 
@@ -102,7 +109,7 @@ delete:
 	python -m ledgerblue.deleteApp $(COMMON_DELETE_PARAMS)
 
 docker:
-	docker build --build-arg CACHE_BUST='$(shell date)' -f Dockerfile.build -t ledger-app-hns-build .
+	docker build --build-arg GIT_REF='$(shell echo $(GIT_REF))' --build-arg CACHE_BUST='$(shell date)' -f Dockerfile.build -t ledger-app-hns-build .
 	docker run --name ledger-app-hns-build ledger-app-hns-build
 	docker cp ledger-app-hns-build:/ledger-app-hns/bin/app.elf ./bin
 	docker cp ledger-app-hns-build:/ledger-app-hns/bin/app.hex ./bin

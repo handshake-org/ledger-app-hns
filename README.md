@@ -66,9 +66,15 @@ $ cd ledger-app-hns
 - Unlock the device.
 - Navigate to the device's main menu.
 
-Run:
+If your device is running firmware v1.6.0, run:
 ```bash
 $ docker build --build-arg CACHE_BUST="$(date)" -f Dockerfile.build -t ledger-app-hns-build .
+$ docker run --rm --privileged ledger-app-hns-build make load
+```
+
+If your device is running firmware v1.5.5, run:
+```bash
+$ docker build --build-arg GIT_REF="nanos-1553" --build-arg CACHE_BUST="$(date)" -f Dockerfile.build -t ledger-app-hns-build .
 $ docker run --rm --privileged ledger-app-hns-build make load
 ```
 
@@ -111,11 +117,21 @@ $ cd ledger-tools
 Before installing the SDK, you will need to know what firmware version is
 running on your Ledger Nano S. If you do not know how to check your firmware
 version, follow the instructions [here][firmware]. This application supports
-`v1.5.5`.
+`v1.6.0 and `v1.5.5`.
 
 Clone the git repo:
 ```bash
 $ git clone https://github.com/ledgerhq/nanos-secure-sdk.git
+```
+
+If your device is running firmware v1.6.0 checkout the `og-1.6.0-1` branch:
+```bash
+$ git checkout og-1.6.0-1
+```
+
+If your device is running firmware v1.5.5 checkout the `nanos-1553` branch:
+```bash
+$ git checkout nanos-1553
 ```
 
 Set the `BOLOS_SDK` environment variable to the absolute path
@@ -157,9 +173,14 @@ $ cd ledger-app-hns
 - Unlock the device.
 - Navigate to the device's main menu.
 
-Run:
+If your device is running firmware v1.6.0, run:
 ```bash
 $ make docker-load
+```
+
+If your device is running firmware v1.5.5, run:
+```bash
+$ GIT_REF="nanos-1553" make docker-load
 ```
 
 - Follow the terminal and on-device instructions (this process takes a while).
