@@ -153,6 +153,7 @@ Run:
 $ virtualenv ledger
 $ source ledger/bin/activate
 $ pip install ledgerblue
+$ pip install Pillow
 ```
 
 #### Install `ledger-app-hns`
