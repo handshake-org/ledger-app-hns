@@ -5,12 +5,6 @@
  * under the terms of the standard MIT license.  See COPYING for more details.
  */
 
-#ifndef WIN32
-#include <arpa/inet.h>
-#else
-#include <winsock2.h>
-#endif
-
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
