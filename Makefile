@@ -130,4 +130,7 @@ include $(BOLOS_SDK)/Makefile.rules
 # add dependency on custom makefile filename
 dep/%.d: %.c Makefile
 
-.PHONY: load delete docker docker-load
+.PHONY: load delete docker docker-load listvariants
+
+listvariants:
+	@echo VARIANTS COIN hns
