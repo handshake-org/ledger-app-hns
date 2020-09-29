@@ -96,6 +96,7 @@ static inline void
 hns_main(void) {
   BEGIN_TRY {
     for (;;) {
+      UX_INIT();
       TRY {
         hns_loop();
       }

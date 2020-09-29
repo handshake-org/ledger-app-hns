@@ -352,7 +352,6 @@ ledger_ui_idle(void) {
 
 void
 ledger_ui_init(void) {
-  UX_INIT();
   ledger_ui_idle();
 }
 
