@@ -173,7 +173,7 @@ ledger_blake2b(
 
   cx_blake2b_t ctx;
   cx_blake2b_init(&ctx, digest_sz * 8);
-  cx_hash(&ctx.header, CX_LAST, data, data_sz, digest);
+  cx_hash(&ctx.header, CX_LAST, data, data_sz, digest, digest_sz);
   return 0;
 }
 
@@ -188,12 +188,12 @@ ledger_blake2b_update(
   volatile void const *data,
   size_t data_sz
 ) {
-  cx_hash(&ctx->header, 0, data, data_sz, NULL);
+  cx_hash(&ctx->header, 0, data, data_sz, NULL, 0);
 }
 
 void
 ledger_blake2b_final(ledger_blake2b_ctx *ctx, void *digest) {
-  cx_hash(&ctx->header, CX_LAST, NULL, 0, digest);
+  cx_hash(&ctx->header, CX_LAST, NULL, 0, digest, &ctx->output_size);
 }
 
 static void
@@ -232,9 +232,9 @@ ledger_ecdsa_derive_xpub(ledger_ecdsa_xpub_t *xpub) {
 
     ledger_ecdsa_derive_node(xpub->path, xpub->depth - 1, &n);
     cx_sha256_init(&ctx.sha256);
-    cx_hash(&ctx.sha256.header, CX_LAST, n.pub.W, 33, buf32);
+    cx_hash(&ctx.sha256.header, CX_LAST, n.pub.W, 33, buf32, sizeof(buf32));
     cx_ripemd160_init(&ctx.ripemd);
-    cx_hash(&ctx.ripemd.header, CX_LAST, buf32, sizeof(buf32), buf20);
+    cx_hash(&ctx.ripemd.header, CX_LAST, buf32, sizeof(buf32), buf20, sizeof(buf20));
     memmove(xpub->fp, buf20, sizeof(xpub->fp));
     memset(&n.prv, 0, sizeof(n.prv));
   }
@@ -396,7 +396,7 @@ ledger_ecdsa_sign(
   ledger_ecdsa_bip32_node_t n;
   ledger_ecdsa_derive_node(path, depth, &n);
   cx_ecdsa_sign(&n.prv, CX_RND_RFC6979 | CX_LAST, CX_SHA256,
-    hash, hash_len, der_sig, NULL);
+    hash, hash_len, der_sig, sizeof(der_sig), NULL);
 
   return parse_der(der_sig, der_sig[1] + 2, sig, sig_sz);
 }
@@ -414,7 +414,7 @@ ledger_sha256(const void *data, size_t data_sz, void *digest) {
 
   cx_sha256_t sha256;
   cx_sha256_init(&sha256);
-  cx_hash(&sha256.header, CX_LAST, data, data_sz, digest);
+  cx_hash(&sha256.header, CX_LAST, data, data_sz, digest, 32);
 
   return true;
 }
@@ -432,7 +432,7 @@ ledger_sha3(const void *data, size_t data_sz, void *digest) {
 
   cx_sha3_t sha3;
   cx_sha3_init(&sha3, 256);
-  cx_hash(&sha3.header, CX_LAST, data, data_sz, digest);
+  cx_hash(&sha3.header, CX_LAST, data, data_sz, digest, 32);
 
   return true;
 }
