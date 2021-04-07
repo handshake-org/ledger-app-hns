@@ -492,7 +492,7 @@ static const ux_flow_step_t *const ledger_ui_output_none[] = {
   FLOW_END_STEP
 };
 
-static const ux_flow_step_t *const ledger_ui_output_name[] = {
+static const ux_flow_step_t *const ledger_ui_output_other[] = {
   &ledger_ui_output_init,
   &ledger_ui_output_type,
   &ledger_ui_output_name,
@@ -622,7 +622,7 @@ handle_output(void) {
   else if (out->cov.type == HNS_TRANSFER)
     ux_flow_init(0, ledger_ui_output_transfer, NULL);
   else
-    ux_flow_init(0, ledger_ui_output_name, NULL);
+    ux_flow_init(0, ledger_ui_output_other, NULL);
 }
 
 bool
