@@ -20,7 +20,8 @@ APPNAME = "Handshake"
 ICONNAME = nanos_app_hns.gif
 APPVERSION = $(MAJOR).$(MINOR).$(PATCH)
 
-APP_LOAD_PARAMS = --appFlags 0xa50 --path "" --curve secp256k1 $(COMMON_LOAD_PARAMS)
+APP_LOAD_PARAMS = --appFlags 0xa50 --path "" --curve secp256k1 \
+                  $(COMMON_LOAD_PARAMS)
 APP_SOURCE_PATH = src vendor/bech32 vendor/base58
 SDK_SOURCE_PATH = lib_stusb lib_stusb_impl lib_u2f qrcode
 
@@ -56,11 +57,6 @@ DEFINES += USB_SEGMENT_SIZE=64
 DEFINES += BLE_SEGMENT_SIZE=32
 
 # WebUSB
-# WEBUSB_URL = www.ledgerwallet.com
-# WEBUSB_URL = www.handshake.org
-# DEFINES += HAVE_WEBUSB
-# DEFINES += WEBUSB_URL_SIZE_B=$(shell echo -n $(WEBUSB_URL) | wc -c)
-# DEFINES += WEBUSB_URL=$(shell echo -n $(WEBUSB_URL) | sed -e "s/./\\\'\0\\\',/g")
 DEFINES += HAVE_WEBUSB WEBUSB_URL_SIZE_B=0 WEBUSB_URL=""
 
 ifeq ($(TARGET_NAME),TARGET_NANOX)
