@@ -134,9 +134,9 @@ Clone the git repo:
 $ git clone https://github.com/ledgerhq/nanos-secure-sdk.git
 ```
 
-If your device is running firmware v1.6.0 checkout the `og-1.6.0-1` branch:
+If your device is running firmware v1.6.0 checkout the `nanos-og-1601` branch:
 ```bash
-$ git checkout og-1.6.0-1
+$ git checkout nanos-og-1601
 ```
 
 If your device is running firmware v1.5.5 checkout the `nanos-1553` branch:
