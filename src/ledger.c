@@ -92,7 +92,7 @@ ledger_exit(uint32_t code) {
 
 uint32_t
 ledger_unlocked(void) {
-  return os_global_pin_is_validated();
+  return os_global_pin_is_validated() == BOLOS_UX_OK;
 }
 
 void
@@ -542,5 +542,6 @@ io_exchange_al(uint8_t channel, uint16_t tx_len) {
 
 void
 io_seproxyhal_display(const bagl_element_t *element) {
-  io_seproxyhal_display_default((bagl_element_t *)element);
+  if ((element->component.type & ~BAGL_TYPE_FLAGS_MASK) != BAGL_NONE)
+    io_seproxyhal_display_default((bagl_element_t *)element);
 }
