@@ -225,7 +225,6 @@ hns_apdu_get_public_key(
     len += write_u8(&out, 0);
   }
 
-#if defined(TARGET_NANOS) || defined(TARGET_NANOX)
   if (ui->must_confirm || non_standard) {
     char *hdr = NULL;
     char *msg = NULL;
@@ -240,13 +239,13 @@ hns_apdu_get_public_key(
       hdr = "Address";
       msg = addr;
     } else if (p2 & XPUB) {
-      uint8_t msg_sz = sizeof(ui->message);
+      size_t msg_sz = sizeof(ui->message);
+
       hdr = "XPUB";
       msg = ui->message;
 
-      if (!encode_xpub(&xpub, p1 & NETWORK_MASK, msg, (size_t *)&msg_sz))
+      if (!encode_xpub(&xpub, p1 & NETWORK_MASK, msg, &msg_sz))
         THROW(HNS_CANNOT_ENCODE_XPUB);
-
     } else {
       hdr = "Public Key";
       msg = ui->message;
@@ -258,7 +257,6 @@ hns_apdu_get_public_key(
 
     return 0;
   }
-#endif
 
   return len;
 }
