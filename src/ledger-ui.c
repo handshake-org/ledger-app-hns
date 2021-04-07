@@ -623,11 +623,7 @@ ledger_ui_update(
 
   memmove(g_ledger.ui.header, header, header_len + 1);
   memmove(g_ledger.ui.message, message, message_len + 1);
-  memmove(g_ledger.ui.viewport, g_ledger.ui.message, 12);
-  g_ledger.ui.viewport[12] = '\0';
-  g_ledger.ui.message_len = message_len;
-  g_ledger.ui.message_pos = 0;
-  g_ledger.ui.state = state;
+
   *flags |= IO_ASYNCH_REPLY;
 
   switch (state) {
