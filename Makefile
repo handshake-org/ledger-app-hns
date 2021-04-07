@@ -20,7 +20,7 @@ APPNAME = "Handshake"
 ICONNAME = nanos_app_hns.gif
 APPVERSION = $(MAJOR).$(MINOR).$(PATCH)
 
-APP_LOAD_PARAMS = --appFlags 0xa50 --path "44'/5353'" --curve secp256k1 $(COMMON_LOAD_PARAMS)
+APP_LOAD_PARAMS = --appFlags 0xa50 --path "" --curve secp256k1 $(COMMON_LOAD_PARAMS)
 APP_SOURCE_PATH = src vendor/bech32 vendor/base58
 SDK_SOURCE_PATH = lib_stusb lib_stusb_impl lib_u2f qrcode
 
