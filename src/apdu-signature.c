@@ -1170,7 +1170,7 @@ sign(
 
   sig[64] = *type;
 
-#if defined(TARGET_NANOS)
+#if defined(TARGET_NANOS) || defined(TARGET_NANOX)
 
   /**
    * Confirm the fees iff this is the first SIGHASH_ALL signed input.
