@@ -68,18 +68,17 @@ typedef struct ledger_ui_ctx_s {
   bool must_confirm;
   char header[14];
   char message[113];
-#if defined(TARGET_NANOS)
-  uint8_t message_len;
-  uint8_t message_pos;
-  char viewport[13];
-  enum ledger_ui_state state;
-#endif
-#if defined(TARGET_NANOX)
+#if defined(HAVE_UX_FLOW)
   char type[9];
   char name[64];
   char owner[75];
   char value[22];
   char address[75];
+#else
+  uint8_t message_len;
+  uint8_t message_pos;
+  char viewport[13];
+  enum ledger_ui_state state;
 #endif
   void *ctx;
   uint8_t buflen;

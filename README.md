@@ -85,6 +85,16 @@ $ docker run --rm --privileged ledger-app-hns-build make load
 
 - Follow the terminal and on-device instructions (this process takes a while).
 
+##### Nano X
+
+If you are using a Nano X, run:
+
+```bash
+$ docker build --build-arg GIT_NAME="nanox-secure-sdk" --build-arg GIT_REF="1.2.4-5.1" \
+               --build-arg CACHE_BUST="$(date)" -f Dockerfile.build -t ledger-app-hns-build .
+$ docker run --rm --privileged ledger-app-hns-build make load
+```
+
 <br/>
 
 ### macOS or Windows Host

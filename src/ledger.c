@@ -458,7 +458,7 @@ ledger_sha3(const void *data, size_t data_sz, void *digest) {
 
 uint8_t G_io_seproxyhal_spi_buffer[IO_SEPROXYHAL_BUFFER_SIZE_B];
 
-#if defined(TARGET_NANOX)
+#if defined(HAVE_UX_FLOW)
 ux_state_t G_ux;
 bolos_ux_params_t G_ux_params;
 #else

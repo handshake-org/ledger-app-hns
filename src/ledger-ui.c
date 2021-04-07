@@ -17,7 +17,7 @@ static const char covenant_labels[12][9] = {
   "RENEW", "TRANSFER", "FINALIZE", "REVOKE"
 };
 
-#if defined(TARGET_NANOS)
+#if !defined(HAVE_UX_FLOW)
 
 /**
  * These constants are used to indicate the network
@@ -391,35 +391,35 @@ ledger_ui_update(
   return true;
 }
 
-#elif defined(TARGET_NANOX)
+#else /* HAVE_UX_FLOW */
 
 ux_state_t G_ux;
 
 /**
  * Main menu screen for Ledger Nano X.
  */
-UX_FLOW_DEF_NOCB(ledger_ui_main_1, bnn, {
+UX_STEP_NOCB(ledger_ui_main_1, bnn, {
   "",
   "Application",
   "is ready"
 });
 
-UX_FLOW_DEF_NOCB(ledger_ui_main_2, bn, {
+UX_STEP_NOCB(ledger_ui_main_2, bn, {
   "Version",
   APPVERSION
 });
 
-UX_FLOW_DEF_VALID(ledger_ui_main_3, pb, os_sched_exit(-1), {
+UX_STEP_CB(ledger_ui_main_3, pb, os_sched_exit(-1), {
   &C_icon_dashboard,
   "Quit"
 });
 
-const ux_flow_step_t *const ledger_ui_main[] = {
+UX_FLOW(ledger_ui_main,
   &ledger_ui_main_1,
   &ledger_ui_main_2,
   &ledger_ui_main_3,
-  FLOW_END_STEP
-};
+  FLOW_LOOP
+);
 
 /**
  * Output approval screen for on-device confirmations.
@@ -441,69 +441,67 @@ ledger_ui_output_reject_fn(void) {
   return 0;
 }
 
-UX_FLOW_DEF_NOCB(ledger_ui_output_init, pnn, {
+UX_STEP_NOCB(ledger_ui_output_init, pnn, {
   &C_icon_eye,
   g_ledger.ui.header,
   g_ledger.ui.message
 });
 
-UX_FLOW_DEF_NOCB(ledger_ui_output_type, bnnn_paging, {
+UX_STEP_NOCB(ledger_ui_output_type, bnnn_paging, {
   .title = "Covenant Type",
   .text = g_ledger.ui.type
 });
 
-UX_FLOW_DEF_NOCB(ledger_ui_output_name, bnnn_paging, {
+UX_STEP_NOCB(ledger_ui_output_name, bnnn_paging, {
   .title = "Name",
   .text = g_ledger.ui.name
 });
 
-UX_FLOW_DEF_NOCB(ledger_ui_output_owner, bnnn_paging, {
+UX_STEP_NOCB(ledger_ui_output_owner, bnnn_paging, {
   .title = "New Owner",
   .text = g_ledger.ui.owner
 });
 
-UX_FLOW_DEF_NOCB(ledger_ui_output_value, bnnn_paging, {
+UX_STEP_NOCB(ledger_ui_output_value, bnnn_paging, {
   .title = "Value",
   .text = g_ledger.ui.value
 });
 
-UX_FLOW_DEF_NOCB(ledger_ui_output_address, bnnn_paging, {
+UX_STEP_NOCB(ledger_ui_output_address, bnnn_paging, {
   .title = "Address",
   .text = g_ledger.ui.address
 });
 
-UX_FLOW_DEF_VALID(ledger_ui_output_accept, pb, ledger_ui_output_accept_fn(), {
+UX_STEP_CB(ledger_ui_output_accept, pb, ledger_ui_output_accept_fn(), {
   &C_icon_validate_14,
   "Accept"
 });
 
-UX_FLOW_DEF_VALID(ledger_ui_output_reject, pb, ledger_ui_output_reject_fn(), {
+UX_STEP_CB(ledger_ui_output_reject, pb, ledger_ui_output_reject_fn(), {
   &C_icon_crossmark,
   "Reject"
 });
 
-static const ux_flow_step_t *const ledger_ui_output_none[] = {
+UX_FLOW(ledger_ui_output_none,
   &ledger_ui_output_init,
   &ledger_ui_output_type,
   &ledger_ui_output_value,
   &ledger_ui_output_address,
   &ledger_ui_output_accept,
   &ledger_ui_output_reject,
-  FLOW_END_STEP
-};
+);
 
-static const ux_flow_step_t *const ledger_ui_output_other[] = {
+UX_FLOW(ledger_ui_output_other,
   &ledger_ui_output_init,
   &ledger_ui_output_type,
   &ledger_ui_output_name,
   &ledger_ui_output_value,
   &ledger_ui_output_address,
   &ledger_ui_output_accept,
-  &ledger_ui_output_reject,
-  FLOW_END_STEP
-};
+  &ledger_ui_output_reject
+);
 
-static const ux_flow_step_t *const ledger_ui_output_transfer[] = {
+UX_FLOW(ledger_ui_output_transfer,
   &ledger_ui_output_init,
   &ledger_ui_output_type,
   &ledger_ui_output_name,
@@ -511,9 +509,8 @@ static const ux_flow_step_t *const ledger_ui_output_transfer[] = {
   &ledger_ui_output_value,
   &ledger_ui_output_address,
   &ledger_ui_output_accept,
-  &ledger_ui_output_reject,
-  FLOW_END_STEP
-};
+  &ledger_ui_output_reject
+);
 
 /**
  * Approval screen for on-device confirmations.
@@ -535,27 +532,26 @@ ledger_ui_approve_reject_fn(void) {
   return 0;
 }
 
-UX_FLOW_DEF_NOCB(ledger_ui_approve_message, bn, {
+UX_STEP_NOCB(ledger_ui_approve_message, bn, {
   g_ledger.ui.header,
   g_ledger.ui.message
 });
 
-UX_FLOW_DEF_VALID(ledger_ui_approve_accept, pb, ledger_ui_approve_accept_fn(), {
+UX_STEP_CB(ledger_ui_approve_accept, pb, ledger_ui_approve_accept_fn(), {
   &C_icon_validate_14,
   "Accept"
 });
 
-UX_FLOW_DEF_VALID(ledger_ui_approve_reject, pb, ledger_ui_approve_reject_fn(), {
+UX_STEP_CB(ledger_ui_approve_reject, pb, ledger_ui_approve_reject_fn(), {
   &C_icon_crossmark,
   "Reject"
 });
 
-static const ux_flow_step_t *const ledger_ui_approve[] = {
+UX_FLOW(ledger_ui_approve,
   &ledger_ui_approve_message,
   &ledger_ui_approve_accept,
-  &ledger_ui_approve_reject,
-  FLOW_END_STEP
-};
+  &ledger_ui_approve_reject
+);
 
 void
 ledger_ui_idle(void) {
@@ -667,8 +663,4 @@ ledger_ui_update(
   return true;
 }
 
-#else /* !TARGET_NANOX */
-
-#error "Unknown target."
-
-#endif /* !TARGET_NANOX */
+#endif /* HAVE_UX_FLOW */

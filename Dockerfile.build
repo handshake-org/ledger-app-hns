@@ -32,15 +32,17 @@ FROM base AS builder
 # image without having to manually use --no-cache. By default, Docker
 # will use cache even if the files being copies have changed.
 ARG CACHE_BUST=123
-ARG GIT_REF=og-1.6.0-1
+ARG GIT_NAME=nanos-secure-sdk
+ARG GIT_REF=nanos-og-1601
 ENV CACHE_BUST $CACHE_BUST
+ENV GIT_NAME $GIT_NAME
 ENV GIT_REF $GIT_REF
-ENV BOLOS_SDK=/nanos-secure-sdk
+ENV BOLOS_SDK=/nano-secure-sdk
 
 RUN mkdir -p /ledger-app-hns
-RUN git clone https://github.com/LedgerHQ/nanos-secure-sdk /nanos-secure-sdk
+RUN git clone https://github.com/LedgerHQ/$GIT_NAME /nano-secure-sdk
 
-WORKDIR /nanos-secure-sdk
+WORKDIR /nano-secure-sdk
 RUN git checkout $GIT_REF
 RUN sed -i s/python/python3/g icon.py
 RUN echo '#!/bin/bash\npython3 "$@"' > /usr/bin/python && \
