@@ -17,7 +17,7 @@ PATCH = 4
 #
 
 APPNAME = "Handshake"
-ICONNAME = nanos_app_hns.gif
+ICONNAME = nanos_icon_hns.gif
 APPVERSION = $(MAJOR).$(MINOR).$(PATCH)
 
 APP_LOAD_PARAMS = --appFlags 0xa50 --path "" --curve secp256k1 \
@@ -27,7 +27,7 @@ SDK_SOURCE_PATH = lib_stusb lib_stusb_impl lib_u2f qrcode
 
 ifeq ($(TARGET_NAME),TARGET_NANOX)
 SDK_SOURCE_PATH += lib_blewbxx lib_blewbxx_impl lib_ux
-ICONNAME = nanox_app_hns.gif
+ICONNAME = nanox_icon_hns.gif
 endif
 
 # Ledger maintainers put these here.
