@@ -52,4 +52,5 @@ COPY src src
 COPY vendor vendor
 COPY Makefile Makefile
 COPY nanos_icon_hns.gif nanos_icon_hns.gif
+COPY nanox_icon_hns.gif nanox_icon_hns.gif
 RUN make
