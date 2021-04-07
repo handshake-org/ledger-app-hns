@@ -9,9 +9,9 @@
 #include "segwit-addr.h"
 #include "utils.h"
 
-static char const network_prefix[4][3] = {"hs", "ts", "rs", "ss"};
+static const char *network_prefix[4] = {"hs", "ts", "rs", "ss"};
 
-static const char covenant_labels[12][9] = {
+static const char *covenant_labels[12] = {
   "NONE", "CLAIM", "OPEN", "BID",
   "REVEAL", "REDEEM", "REGISTER", "UPDATE",
   "RENEW", "TRANSFER", "FINALIZE", "REVOKE"
