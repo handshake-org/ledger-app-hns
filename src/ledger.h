@@ -77,6 +77,7 @@ typedef struct ledger_ui_ctx_s {
 #if defined(TARGET_NANOX)
   char type[9];
   char name[64];
+  char owner[75];
   char value[22];
   char address[75];
 #endif

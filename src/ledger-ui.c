@@ -457,6 +457,11 @@ UX_FLOW_DEF_NOCB(ledger_ui_output_name, bnnn_paging, {
   .text = g_ledger.ui.name
 });
 
+UX_FLOW_DEF_NOCB(ledger_ui_output_owner, bnnn_paging, {
+  .title = "New Owner",
+  .text = g_ledger.ui.owner
+});
+
 UX_FLOW_DEF_NOCB(ledger_ui_output_value, bnnn_paging, {
   .title = "Value",
   .text = g_ledger.ui.value
@@ -491,6 +496,18 @@ static const ux_flow_step_t *const ledger_ui_output_name[] = {
   &ledger_ui_output_init,
   &ledger_ui_output_type,
   &ledger_ui_output_name,
+  &ledger_ui_output_value,
+  &ledger_ui_output_address,
+  &ledger_ui_output_accept,
+  &ledger_ui_output_reject,
+  FLOW_END_STEP
+};
+
+static const ux_flow_step_t *const ledger_ui_output_transfer[] = {
+  &ledger_ui_output_init,
+  &ledger_ui_output_type,
+  &ledger_ui_output_name,
+  &ledger_ui_output_owner,
   &ledger_ui_output_value,
   &ledger_ui_output_address,
   &ledger_ui_output_accept,
@@ -565,6 +582,7 @@ handle_output(void) {
   ledger_ui_ctx_t *ui = &g_ledger.ui;
   hns_output_t *out = &((hns_tx_t *)ui->ctx)->curr_output;
   uint8_t netflag = ui->network >> 1;
+  const hns_addr_t *a = &out->addr;
   const char *hrp;
 
   if (netflag < 0 || netflag > 3)
@@ -582,25 +600,27 @@ handle_output(void) {
   else
     ui->name[0] = '\0';
 
-  hex_to_dec(ui->value, out->val);
-
   if (out->cov.type == HNS_TRANSFER) {
     const hns_transfer_t *t = &out->cov.items.transfer;
 
-    if (!segwit_addr_encode(ui->address, hrp, t->addr_ver,
-                                              t->addr_hash,
-                                              t->addr_len)) {
+    if (!segwit_addr_encode(ui->owner, hrp, t->addr_ver,
+                                            t->addr_hash,
+                                            t->addr_len)) {
       THROW(HNS_CANNOT_ENCODE_ADDRESS);
     }
   } else {
-    const hns_addr_t *a = &out->addr;
-
-    if (!segwit_addr_encode(ui->address, hrp, a->ver, a->hash, a->hash_len))
-      THROW(HNS_CANNOT_ENCODE_ADDRESS);
+    ui->owner[0] = '\0';
   }
+
+  hex_to_dec(ui->value, out->val);
+
+  if (!segwit_addr_encode(ui->address, hrp, a->ver, a->hash, a->hash_len))
+    THROW(HNS_CANNOT_ENCODE_ADDRESS);
 
   if (out->cov.type == HNS_NONE)
     ux_flow_init(0, ledger_ui_output_none, NULL);
+  else if (out->cov.type == HNS_TRANSFER)
+    ux_flow_init(0, ledger_ui_output_transfer, NULL);
   else
     ux_flow_init(0, ledger_ui_output_name, NULL);
 }
