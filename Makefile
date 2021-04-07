@@ -10,14 +10,18 @@ APPVERSION_N = 0
 APPVERSION_P = 3
 APPVERSION = $(APPVERSION_M).$(APPVERSION_N).$(APPVERSION_P)
 
-APP_LOAD_FLAGS = --appFlags 0x50
+APP_LOAD_FLAGS = --appFlags 0x250
 APP_PATH_PARAMS = --path ""
 APP_LOAD_PARAMS = --curve secp256k1 $(COMMON_LOAD_PARAMS)
 APP_LOAD_PARAMS += $(APP_LOAD_FLAGS) $(APP_PATH_PARAMS)
 APP_LOAD_PARAMS += --tlvraw 9F:01
 DEFINES += HAVE_PENDING_REVIEW_SCREEN
 
+ifeq ($(TARGET_NAME),TARGET_NANOX)
+ICONNAME=nanox_icon_hns.gif
+else
 ICONNAME=nanos_icon_hns.gif
+endif
 
 ################
 # Default rule #
@@ -40,6 +44,18 @@ DEFINES   += HNS_APP_PATCH_VERSION=$(APPVERSION_P)
 DEFINES   += UNUSED\(x\)=\(void\)x
 DEFINES   += APPVERSION=\"$(APPVERSION)\"
 DEFINES   += BLAKE_SDK
+
+ifeq ($(TARGET_NAME),TARGET_NANOX)
+DEFINES       += HAVE_BLE BLE_COMMAND_TIMEOUT_MS=2000
+DEFINES       += HAVE_BLE_APDU # basic ledger apdu transport over BLE
+
+DEFINES       += HAVE_GLO096 HAVE_UX_LEGACY
+DEFINES       += HAVE_BAGL BAGL_WIDTH=128 BAGL_HEIGHT=64
+DEFINES       += HAVE_BAGL_ELLIPSIS # long label truncation feature
+DEFINES       += HAVE_BAGL_FONT_OPEN_SANS_REGULAR_11PX
+DEFINES       += HAVE_BAGL_FONT_OPEN_SANS_EXTRABOLD_11PX
+DEFINES       += HAVE_BAGL_FONT_OPEN_SANS_LIGHT_16PX
+endif
 
 # U2F
 DEFINES   += HAVE_U2F HAVE_IO_U2F
@@ -95,6 +111,11 @@ include $(BOLOS_SDK)/Makefile.glyphs
 ### of the SDK to grab source files and include dirs
 APP_SOURCE_PATH  += src vendor/bech32 vendor/base58
 SDK_SOURCE_PATH  += lib_stusb lib_stusb_impl lib_u2f qrcode
+
+ifeq ($(TARGET_NAME),TARGET_NANOX)
+SDK_SOURCE_PATH  += lib_blewbxx lib_blewbxx_impl
+SDK_SOURCE_PATH  += lib_ux
+endif
 
 # SDK build target
 ifeq ($(GIT_REF),)

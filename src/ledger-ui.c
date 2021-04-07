@@ -9,6 +9,14 @@
 #include "segwit-addr.h"
 #include "utils.h"
 
+static char const network_prefix[4][3] = {"hs", "ts", "rs", "ss"};
+
+static const char covenant_labels[12][9] = {
+  "NONE", "CLAIM", "OPEN", "BID",
+  "REVEAL", "REDEEM", "REGISTER", "UPDATE",
+  "RENEW", "TRANSFER", "FINALIZE", "REVOKE"
+};
+
 #if defined(TARGET_NANOS)
 
 /**
@@ -101,8 +109,6 @@ static bagl_element_t const ledger_ui_display[] = {
   LEDGER_UI_TEXT(0x00, 0, 26, 128, g_ledger.ui.viewport)
 };
 
-static char const network_prefix[4][3] = {"hs", "ts", "rs", "ss"};
-
 /**
  * Handles button events for the approval screen.
  *
@@ -138,16 +144,10 @@ ledger_ui_approve_button(uint32_t mask, uint32_t ctr) {
           char *msg = g_ledger.ui.message;
           volatile uint8_t *flags = g_ledger.ui.flags;
 
-          const char label[12][9] = {
-            "NONE", "CLAIM", "OPEN", "BID",
-            "REVEAL", "REDEEM", "REGISTER", "UPDATE",
-            "RENEW", "TRANSFER", "FINALIZE", "REVOKE"
-          };
-
           if (out->cov.type < HNS_NONE || out->cov.type > HNS_REVOKE)
             THROW(HNS_UNSUPPORTED_COVENANT_TYPE);
 
-          strcpy(msg, label[out->cov.type]);
+          strcpy(msg, covenant_labels[out->cov.type]);
           ledger_ui_update(LEDGER_UI_COVENANT_TYPE, hdr, msg, flags);
           break;
         }
@@ -375,7 +375,7 @@ ledger_ui_update(
   if (header_len >= sizeof(g_ledger.ui.header))
     return false;
 
-  if (header_len >= sizeof(g_ledger.ui.message))
+  if (message_len >= sizeof(g_ledger.ui.message))
     return false;
 
   memmove(g_ledger.ui.header, header, header_len + 1);
@@ -390,4 +390,269 @@ ledger_ui_update(
 
   return true;
 }
-#endif
+
+#elif defined(TARGET_NANOX)
+
+ux_state_t G_ux;
+
+/**
+ * Main menu screen for Ledger Nano X.
+ */
+UX_FLOW_DEF_NOCB(ledger_ui_main_1, bnn, {
+  "",
+  "Application",
+  "is ready"
+});
+
+UX_FLOW_DEF_NOCB(ledger_ui_main_2, bn, {
+  "Version",
+  APPVERSION
+});
+
+UX_FLOW_DEF_VALID(ledger_ui_main_3, pb, os_sched_exit(-1), {
+  &C_icon_dashboard,
+  "Quit"
+});
+
+const ux_flow_step_t *const ledger_ui_main[] = {
+  &ledger_ui_main_1,
+  &ledger_ui_main_2,
+  &ledger_ui_main_3,
+  FLOW_END_STEP
+};
+
+/**
+ * Output approval screen for on-device confirmations.
+ */
+static unsigned int
+ledger_ui_output_accept_fn(void) {
+  hns_output_t *out = &((hns_tx_t *)g_ledger.ui.ctx)->curr_output;
+  memset(out, 0, sizeof(hns_output_t));
+  ledger_apdu_exchange(IO_RETURN_AFTER_TX, g_ledger.ui.buflen, HNS_OK);
+  ledger_ui_idle();
+  return 0;
+}
+
+static unsigned int
+ledger_ui_output_reject_fn(void) {
+  ledger_apdu_buffer_clear();
+  ledger_apdu_exchange(IO_RETURN_AFTER_TX, 0, HNS_CONDITIONS_OF_USE_NOT_SATISFIED);
+  ledger_ui_idle();
+  return 0;
+}
+
+UX_FLOW_DEF_NOCB(ledger_ui_output_init, pnn, {
+  &C_icon_eye,
+  g_ledger.ui.header,
+  g_ledger.ui.message
+});
+
+UX_FLOW_DEF_NOCB(ledger_ui_output_type, bnnn_paging, {
+  .title = "Covenant Type",
+  .text = g_ledger.ui.type
+});
+
+UX_FLOW_DEF_NOCB(ledger_ui_output_name, bnnn_paging, {
+  .title = "Name",
+  .text = g_ledger.ui.name
+});
+
+UX_FLOW_DEF_NOCB(ledger_ui_output_value, bnnn_paging, {
+  .title = "Value",
+  .text = g_ledger.ui.value
+});
+
+UX_FLOW_DEF_NOCB(ledger_ui_output_address, bnnn_paging, {
+  .title = "Address",
+  .text = g_ledger.ui.address
+});
+
+UX_FLOW_DEF_VALID(ledger_ui_output_accept, pb, ledger_ui_output_accept_fn(), {
+  &C_icon_validate_14,
+  "Accept"
+});
+
+UX_FLOW_DEF_VALID(ledger_ui_output_reject, pb, ledger_ui_output_reject_fn(), {
+  &C_icon_crossmark,
+  "Reject"
+});
+
+static const ux_flow_step_t *const ledger_ui_output_none[] = {
+  &ledger_ui_output_init,
+  &ledger_ui_output_type,
+  &ledger_ui_output_value,
+  &ledger_ui_output_address,
+  &ledger_ui_output_accept,
+  &ledger_ui_output_reject,
+  FLOW_END_STEP
+};
+
+static const ux_flow_step_t *const ledger_ui_output_name[] = {
+  &ledger_ui_output_init,
+  &ledger_ui_output_type,
+  &ledger_ui_output_name,
+  &ledger_ui_output_value,
+  &ledger_ui_output_address,
+  &ledger_ui_output_accept,
+  &ledger_ui_output_reject,
+  FLOW_END_STEP
+};
+
+/**
+ * Approval screen for on-device confirmations.
+ */
+static unsigned int
+ledger_ui_approve_accept_fn(void) {
+  uint8_t len = ledger_apdu_cache_flush(NULL);
+  ledger_apdu_exchange(IO_RETURN_AFTER_TX, len, HNS_OK);
+  g_ledger.ui.must_confirm = false;
+  ledger_ui_idle();
+  return 0;
+}
+
+static unsigned int
+ledger_ui_approve_reject_fn(void) {
+  ledger_apdu_buffer_clear();
+  ledger_apdu_exchange(IO_RETURN_AFTER_TX, 0, HNS_CONDITIONS_OF_USE_NOT_SATISFIED);
+  ledger_ui_idle();
+  return 0;
+}
+
+UX_FLOW_DEF_NOCB(ledger_ui_approve_message, bn, {
+  g_ledger.ui.header,
+  g_ledger.ui.message
+});
+
+UX_FLOW_DEF_VALID(ledger_ui_approve_accept, pb, ledger_ui_approve_accept_fn(), {
+  &C_icon_validate_14,
+  "Accept"
+});
+
+UX_FLOW_DEF_VALID(ledger_ui_approve_reject, pb, ledger_ui_approve_reject_fn(), {
+  &C_icon_crossmark,
+  "Reject"
+});
+
+static const ux_flow_step_t *const ledger_ui_approve[] = {
+  &ledger_ui_approve_message,
+  &ledger_ui_approve_accept,
+  &ledger_ui_approve_reject,
+  FLOW_END_STEP
+};
+
+void
+ledger_ui_idle(void) {
+  if (G_ux.stack_count == 0)
+    ux_stack_push();
+
+  ux_flow_init(0, ledger_ui_main, NULL);
+}
+
+void
+ledger_ui_init(void) {
+  ledger_ui_idle();
+}
+
+ledger_ui_ctx_t *
+ledger_ui_init_session(void) {
+  ledger_ui_ctx_t *ui = &g_ledger.ui;
+  memset(ui, 0, sizeof(ledger_ui_ctx_t));
+  return ui;
+}
+
+static void
+handle_output(void) {
+  ledger_ui_ctx_t *ui = &g_ledger.ui;
+  hns_output_t *out = &((hns_tx_t *)ui->ctx)->curr_output;
+  uint8_t netflag = ui->network >> 1;
+  const char *hrp;
+
+  if (netflag < 0 || netflag > 3)
+    THROW(HNS_INCORRECT_P1);
+
+  hrp = network_prefix[netflag];
+
+  if (out->cov.type < HNS_NONE || out->cov.type > HNS_REVOKE)
+    THROW(HNS_UNSUPPORTED_COVENANT_TYPE);
+
+  strcpy(ui->type, covenant_labels[out->cov.type]);
+
+  if (out->cov.type != HNS_NONE)
+    strcpy(ui->name, out->cov.name);
+  else
+    ui->name[0] = '\0';
+
+  hex_to_dec(ui->value, out->val);
+
+  if (out->cov.type == HNS_TRANSFER) {
+    const hns_transfer_t *t = &out->cov.items.transfer;
+
+    if (!segwit_addr_encode(ui->address, hrp, t->addr_ver,
+                                              t->addr_hash,
+                                              t->addr_len)) {
+      THROW(HNS_CANNOT_ENCODE_ADDRESS);
+    }
+  } else {
+    const hns_addr_t *a = &out->addr;
+
+    if (!segwit_addr_encode(ui->address, hrp, a->ver, a->hash, a->hash_len))
+      THROW(HNS_CANNOT_ENCODE_ADDRESS);
+  }
+
+  if (out->cov.type == HNS_NONE)
+    ux_flow_init(0, ledger_ui_output_none, NULL);
+  else
+    ux_flow_init(0, ledger_ui_output_name, NULL);
+}
+
+bool
+ledger_ui_update(
+  enum ledger_ui_state state,
+  char *header,
+  char *message,
+  volatile uint8_t *flags
+) {
+  size_t header_len = strlen(header);
+  size_t message_len = strlen(message);
+
+  if (header_len >= sizeof(g_ledger.ui.header))
+    return false;
+
+  if (message_len >= sizeof(g_ledger.ui.message))
+    return false;
+
+  memmove(g_ledger.ui.header, header, header_len + 1);
+  memmove(g_ledger.ui.message, message, message_len + 1);
+  memmove(g_ledger.ui.viewport, g_ledger.ui.message, 12);
+  g_ledger.ui.viewport[12] = '\0';
+  g_ledger.ui.message_len = message_len;
+  g_ledger.ui.message_pos = 0;
+  g_ledger.ui.state = state;
+  *flags |= IO_ASYNCH_REPLY;
+
+  switch (state) {
+    case LEDGER_UI_KEY:
+    case LEDGER_UI_FEES:
+    case LEDGER_UI_SIGHASH_TYPE: {
+      ux_flow_init(0, ledger_ui_approve, NULL);
+      break;
+    }
+
+    case LEDGER_UI_OUTPUT: {
+      handle_output();
+      break;
+    }
+
+    default: {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+#else /* !TARGET_NANOX */
+
+#error "Unknown target."
+
+#endif /* !TARGET_NANOX */

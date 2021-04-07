@@ -225,7 +225,7 @@ hns_apdu_get_public_key(
     len += write_u8(&out, 0);
   }
 
-#if defined(TARGET_NANOS)
+#if defined(TARGET_NANOS) || defined(TARGET_NANOX)
   if (ui->must_confirm || non_standard) {
     char *hdr = NULL;
     char *msg = NULL;

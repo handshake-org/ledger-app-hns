@@ -52,10 +52,19 @@ ledger_init(void) {
 
   io_seproxyhal_init();
 
+#ifdef TARGET_NANOX
+  G_io_app.plane_mode = os_setting_get(OS_SETTING_PLANEMODE, NULL, 0);
+#endif
+
   USB_power(false);
   USB_power(true);
 
   ledger_ui_init();
+
+#ifdef HAVE_BLE
+  BLE_power(0, NULL);
+  BLE_power(1, "Nano X");
+#endif
 
   return G_io_apdu_buffer;
 }
@@ -448,7 +457,13 @@ ledger_sha3(const void *data, size_t data_sz, void *digest) {
  */
 
 uint8_t G_io_seproxyhal_spi_buffer[IO_SEPROXYHAL_BUFFER_SIZE_B];
+
+#if defined(TARGET_NANOX)
+ux_state_t G_ux;
+bolos_ux_params_t G_ux_params;
+#else
 ux_state_t ux;
+#endif
 
 /**
  * BOLOS SDK function definitions.
