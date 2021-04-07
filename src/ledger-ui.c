@@ -488,7 +488,7 @@ UX_FLOW(ledger_ui_output_none,
   &ledger_ui_output_value,
   &ledger_ui_output_address,
   &ledger_ui_output_accept,
-  &ledger_ui_output_reject,
+  &ledger_ui_output_reject
 );
 
 UX_FLOW(ledger_ui_output_other,
