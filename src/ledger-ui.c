@@ -9,9 +9,10 @@
 #include "segwit-addr.h"
 #include "utils.h"
 
-static const char *network_prefix[4] = {"hs", "ts", "rs", "ss"};
+/* Save 48 bytes here by not using a pointer array. */
+static const char network_prefix[4][3] = {"hs", "ts", "rs", "ss"};
 
-static const char *covenant_labels[12] = {
+static const char covenant_labels[12][9] = {
   "NONE", "CLAIM", "OPEN", "BID",
   "REVEAL", "REDEEM", "REGISTER", "UPDATE",
   "RENEW", "TRANSFER", "FINALIZE", "REVOKE"
@@ -579,12 +580,12 @@ handle_output(void) {
   hns_output_t *out = &((hns_tx_t *)ui->ctx)->curr_output;
   uint8_t netflag = ui->network >> 1;
   const hns_addr_t *a = &out->addr;
-  const char *hrp;
+  char hrp[3];
 
   if (netflag < 0 || netflag > 3)
     THROW(HNS_INCORRECT_P1);
 
-  hrp = network_prefix[netflag];
+  strcpy(hrp, network_prefix[netflag]);
 
   if (out->cov.type < HNS_NONE || out->cov.type > HNS_REVOKE)
     THROW(HNS_UNSUPPORTED_COVENANT_TYPE);
