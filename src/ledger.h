@@ -129,7 +129,7 @@ ledger_exit(uint32_t code);
 /**
  * Checks that device pin code has been entered.
  */
-uint32_t
+bool
 ledger_unlocked(void);
 
 /**
