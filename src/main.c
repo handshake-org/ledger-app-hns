@@ -44,13 +44,14 @@ hns_loop(void) {
 
     BEGIN_TRY {
       TRY {
-        volatile uint8_t * in = buf + HNS_OFFSET_CDATA;
-        volatile uint8_t * out = buf;
+        volatile uint8_t *in = buf + HNS_OFFSET_CDATA;
+        volatile uint8_t *out = buf;
         uint8_t p1 = buf[HNS_OFFSET_P1];
         uint8_t p2 = buf[HNS_OFFSET_P2];
         uint8_t cla = buf[HNS_OFFSET_CLA];
         uint8_t ins = buf[HNS_OFFSET_INS];
         uint8_t lc  = buf[HNS_OFFSET_LC];
+
         sw = HNS_OK;
         flags = 0;
 
@@ -80,13 +81,15 @@ hns_loop(void) {
       }
       CATCH_OTHER(e) {
         ledger_apdu_buffer_clear();
-        sw = (e < 0x100) ? 0x6f00|e : e;
+        sw = (e < 0x100) ? (0x6f00 | e) : e;
         len = 0;
       }
       FINALLY;
     }
     END_TRY;
   }
+
+  ledger_reset();
 }
 
 /**
@@ -94,23 +97,25 @@ hns_loop(void) {
  */
 static inline void
 hns_main(void) {
-  BEGIN_TRY {
-    for (;;) {
-      UX_INIT();
+  for (;;) {
+    UX_INIT();
+    BEGIN_TRY {
       TRY {
         hns_loop();
       }
       CATCH(LEDGER_RESET) {
+        CLOSE_TRY;
         continue;
       }
       CATCH_ALL {
+        CLOSE_TRY;
         break;
       }
       FINALLY;
     }
-    ledger_exit(-1);
+    END_TRY;
   }
-  END_TRY;
+  ledger_exit(-1);
 }
 
 __attribute__((section(".boot")))

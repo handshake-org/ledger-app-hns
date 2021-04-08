@@ -90,7 +90,7 @@ ledger_exit(uint32_t code) {
   END_TRY_L(exit);
 }
 
-uint32_t
+bool
 ledger_unlocked(void) {
   return os_global_pin_is_validated() == BOLOS_UX_OK;
 }
