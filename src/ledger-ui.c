@@ -394,8 +394,6 @@ ledger_ui_update(
 
 #else /* HAVE_UX_FLOW */
 
-ux_state_t G_ux;
-
 /**
  * Main menu screen for Ledger Nano X.
  */
