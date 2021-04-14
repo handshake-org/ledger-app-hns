@@ -1,7 +1,7 @@
-FROM ubuntu:16.04 AS base
+FROM ubuntu:18.04 AS base
 
 RUN apt-get update
-RUN apt-get install -y python3 python3-pil python3-setuptools python3-dev build-essential git wget tar libusb-1.0-0.dev libudev-dev gcc-multilib g++-multilib
+RUN apt-get install -y python3.6 python3-pip python3-pil python3-setuptools python3-dev build-essential git wget tar libusb-1.0-0.dev libudev-dev gcc-multilib g++-multilib
 
 RUN mkdir -p /bolos-devenv
 WORKDIR /bolos-devenv
@@ -18,7 +18,6 @@ RUN md5sum -c clang.md5
 RUN tar xvf clang+llvm-4.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
 RUN ln -s clang+llvm-4.0.0-x86_64-linux-gnu-ubuntu-16.04 clang-arm-fropi
 
-RUN easy_install3 pip
 RUN pip3 install virtualenv
 RUN virtualenv ledger
 RUN /bin/sh ledger/bin/activate
@@ -33,7 +32,7 @@ FROM base AS builder
 # will use cache even if the files being copies have changed.
 ARG CACHE_BUST=123
 ARG GIT_NAME=nanos-secure-sdk
-ARG GIT_REF=nanos-og-1601
+ARG GIT_REF=nanos-1612
 ENV CACHE_BUST $CACHE_BUST
 ENV GIT_NAME $GIT_NAME
 ENV GIT_REF $GIT_REF

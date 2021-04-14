@@ -147,7 +147,7 @@ GIT_NAME := nanos-secure-sdk
 endif
 
 ifeq ($(GIT_REF),)
-GIT_REF := nanos-og-1601
+GIT_REF := nanos-1612
 endif
 
 DOCKER_ARGS = --build-arg GIT_NAME='$(GIT_NAME)'     \
@@ -165,6 +165,19 @@ docker:
 
 docker-load: docker
 	python -m ledgerblue.loadApp $(APP_LOAD_PARAMS)
+
+docker-build-all:
+	docker build -f Dockerfile.build-all -t ledger-app-hns-build-all . --progress=plain
+	docker run --name ledger-app-hns-build-all ledger-app-hns-build-all
+	docker cp ledger-app-hns-build-all:/nanos/bin/app.elf ./bin/hns-nanos.elf
+	docker cp ledger-app-hns-build-all:/nanos/bin/app.hex ./bin/hns-nanos.hex
+	docker cp ledger-app-hns-build-all:/nanos/debug/app.map ./debug/hns-nanos.map
+	docker cp ledger-app-hns-build-all:/nanos/debug/app.asm ./debug/hns-nanos.asm
+	docker cp ledger-app-hns-build-all:/nanox/bin/app.elf ./bin/hns-nanox.elf
+	docker cp ledger-app-hns-build-all:/nanox/bin/app.hex ./bin/hns-nanox.hex
+	docker cp ledger-app-hns-build-all:/nanox/debug/app.map ./debug/hns-nanox.map
+	docker cp ledger-app-hns-build-all:/nanox/debug/app.asm ./debug/hns-nanox.asm
+	docker rm ledger-app-hns-build-all
 
 MAKECMDGOALS := docker docker-load
 
