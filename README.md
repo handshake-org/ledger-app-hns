@@ -202,6 +202,39 @@ $ GIT_REF="nanos-1553" make docker-load
 
 <br/>
 
+## Build Apps Only (for emulator)
+
+To build both Nano S and Nano X apps using Docker:
+
+```bash
+$ make docker-build-all
+```
+
+This will run the build in a docker container and copy the final builds to
+`/bin/hns-nanos.elf` and `/bin/hns-nanox.elf`
+
+These two binaries can be executed inside the
+[Speculos emulator](https://github.com/LedgerHQ/speculos).
+For example, to run the built Nano S app in the emulator from docker:
+
+```
+docker run -v \
+  /path/to/ledger-app-hns/bin:/speculos/apps \
+  --publish 5900:5900 \
+  -it \
+  ledgerhq/speculos \
+  --display headless \
+  --vnc-port 5900 \
+  --vnc-password=xyz \
+  apps/hns-nanos.elf \
+  --model nanos
+```
+
+The command is explained in detail in the Speculos docs. Just note the path
+to the `/bin` directory and `model` argument. The emulated device can be
+accessed using a VNC client. On OSX, the `--vnc-password` argument is required
+and will be requested by the VNC client.
+
 ## Tests
 
 A suite of tests have been added to the [client library][tests]. They include
