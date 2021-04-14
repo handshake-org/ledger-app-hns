@@ -166,6 +166,13 @@ docker:
 docker-load: docker
 	python -m ledgerblue.loadApp $(APP_LOAD_PARAMS)
 
+docker-build-all:
+	docker build -f Dockerfile.build-all -t ledger-app-hns-build-all .
+	docker run --name ledger-app-hns-build-all ledger-app-hns-build-all
+	docker cp ledger-app-hns-build-all:/nanos/bin/app.elf ./bin/hns-nanos.elf
+	docker cp ledger-app-hns-build-all:/nanox/bin/app.elf ./bin/hns-nanox.elf
+	#docker cp ledger-app-hns-build-all:/blue/bin/app.elf ./bin/hns-blue.elf
+
 MAKECMDGOALS := docker docker-load
 
 .PHONY: all load delete listvariants docker docker-load
