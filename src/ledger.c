@@ -193,7 +193,7 @@ ledger_blake2b_update(
 
 void
 ledger_blake2b_final(ledger_blake2b_ctx *ctx, void *digest) {
-  cx_hash(&ctx->header, CX_LAST, NULL, 0, digest, &ctx->output_size);
+  cx_hash(&ctx->header, CX_LAST, NULL, 0, digest, ctx->output_size);
 }
 
 static void
