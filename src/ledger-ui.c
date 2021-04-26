@@ -397,8 +397,7 @@ ledger_ui_update(
 /**
  * Main menu screen for Ledger Nano X.
  */
-UX_STEP_NOCB(ledger_ui_main_1, bnn, {
-  "",
+UX_STEP_NOCB(ledger_ui_main_1, nn, {
   "Application",
   "is ready"
 });
