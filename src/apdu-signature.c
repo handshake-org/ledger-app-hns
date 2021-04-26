@@ -257,7 +257,7 @@ parse_name(
  * covenant items list.
  *
  * In:
- * @param name_hash is the blake2b hash of the name.
+ * @param name_hash is the sha3 hash of the name.
  *
  * Out:
  * @param buf is the input buffer.
