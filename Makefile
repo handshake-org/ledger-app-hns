@@ -74,14 +74,15 @@ endif
 
 #
 # Detect Flow Support for Nano S
+# (currently disabled due to memory consumption)
 #
 
-ifneq ($(TARGET_NAME),TARGET_NANOX)
-ifneq ("$(wildcard $(BOLOS_SDK)/lib_ux/include/ux_flow_engine.h)","")
-DEFINES += HAVE_UX_FLOW
-SDK_SOURCE_PATH += lib_ux
-endif
-endif
+#ifneq ($(TARGET_NAME),TARGET_NANOX)
+#ifneq ("$(wildcard $(BOLOS_SDK)/lib_ux/include/ux_flow_engine.h)","")
+#DEFINES += HAVE_UX_FLOW
+#SDK_SOURCE_PATH += lib_ux
+#endif
+#endif
 
 #
 # Debugging
