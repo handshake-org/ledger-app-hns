@@ -1200,7 +1200,7 @@ sign(
    */
 
   if (*type != SIGHASH_ALL) {
-    static const char *types[5] = {"", "ALL", "NONE", "SINGLE", "SINGLEREVERSE"};
+    static const char types[5][14] = {"", "ALL", "NONE", "SINGLE", "SINGLEREVERSE"};
     char *hdr = "Sighash Type";
     char *msg = ui->message;
     uint8_t low = *type & 0x1f;
