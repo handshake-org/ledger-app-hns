@@ -127,7 +127,6 @@ typedef struct hns_redeem_s {
 typedef struct hns_register_s {
   uint8_t name_hash[32];
   uint8_t height[4];
-  hns_varint_t resource_len;
   hns_varint_t resource_ctr;
   uint8_t hash[32];
 } hns_register_t;
@@ -135,7 +134,6 @@ typedef struct hns_register_s {
 typedef struct hns_update_s {
   uint8_t name_hash[32];
   uint8_t height[4];
-  hns_varint_t resource_len;
   hns_varint_t resource_ctr;
 } hns_update_t;
 
