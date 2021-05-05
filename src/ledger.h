@@ -168,7 +168,7 @@ ledger_apdu_cache_write(volatile uint8_t *src, uint8_t src_len);
  * @return the amount of data added to the exchange buffer from the cache.
  */
 uint8_t
-ledger_apdu_cache_flush(uint8_t *len);
+ledger_apdu_cache_flush(uint16_t *len);
 
 /**
  * Checks the apdu cache buffer for stored data.

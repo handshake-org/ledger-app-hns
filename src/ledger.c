@@ -119,11 +119,11 @@ ledger_apdu_cache_write(volatile uint8_t *src, uint8_t src_len) {
 }
 
 uint8_t
-ledger_apdu_cache_flush(uint8_t *len) {
+ledger_apdu_cache_flush(uint16_t *len) {
   uint8_t *cache = g_ledger_apdu_cache;
   uint8_t *buffer = g_ledger_apdu_buffer;
   uint8_t cache_len = g_ledger_apdu_cache_len;
-  uint8_t buffer_len = 0;
+  uint16_t buffer_len = 0;
 
   if (cache_len == 0)
     return 0;
