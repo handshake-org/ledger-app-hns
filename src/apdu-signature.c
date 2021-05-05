@@ -275,10 +275,10 @@ cmp_name(
   uint8_t *name_len
 ) {
   uint8_t n[64];
-  uint8_t nlen;
+  size_t nlen;
   uint8_t digest[32];
 
-  if (!read_varbytes(buf, len, n, 63, (size_t *)&nlen))
+  if (!read_varbytes(buf, len, n, 63, &nlen))
     return false;
 
   if (nlen < 1 || nlen > 63)
